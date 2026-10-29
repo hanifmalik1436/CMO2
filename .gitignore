@@ -19,6 +19,9 @@ dist/
 .env
 .env.*
 !.env.example
+cmo2-backend/src/main/resources/application.properties
+**/application-local.properties
+**/application-*.local.properties
 
 # OS
 .DS_Store
