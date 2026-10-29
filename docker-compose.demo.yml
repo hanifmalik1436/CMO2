@@ -1,0 +1,39 @@
+# Demo overlay: runs CMO² with a seeded demo agency and no external accounts.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up --build
+#
+# What it changes from docker-compose.yml:
+#   - Turns on the `demo` Spring profile. DemoDataSeeder then creates the "Demo Agency": an owner
+#     and four teammates, 3 customers with simulated GoHighLevel figures, drafts waiting in
+#     Approvals, a Strange Loop cycle (record, learning, an experiment), alerts and PDF reports.
+#   - Pins every outside service to its offline mode, so a demo never calls GoHighLevel or Stripe.
+#     AI stays on the demo provider unless you pass CMO2_AI_PROVIDER and a key (DEMO_RUNBOOK.md §6).
+#   - Keeps demo data in its own MySQL volume, and doesn't publish MySQL/Redis ports, so the demo
+#     can run next to a MySQL or Redis already installed on your machine.
+#
+# Needs Docker Compose v2.24 or later (for the !override and !reset tags below).
+# Never use this overlay for a real deployment: every seeded user has the same known password.
+services:
+  mysql:
+    ports: !reset []                   # only the backend needs it, over the Compose network
+    volumes: !override
+      - mysql_demo_data:/var/lib/mysql
+
+  redis:
+    ports: !reset []
+
+  backend:
+    environment:
+      SPRING_PROFILES_ACTIVE: docker,demo
+      CMO2_GHL_DEMO_MODE: "true"       # demo customers aren't real sub-accounts
+      CMO2_BILLING_PROVIDER: stub
+      CMO2_SELF_REGISTRATION: closed   # the demo users are seeded; nobody signs up
+      CMO2_LOOP_STAGE_DELAY_MS: "600"  # slows cycles a little so the live progress bar is visible
+      # Demo AI by default. For realistic text: CMO2_AI_PROVIDER=anthropic plus CMO2_AI_API_KEY
+      # (and optionally CMO2_AI_OPENAI_API_KEY), from your shell or a .env file. Real calls cost money.
+      CMO2_AI_PROVIDER: ${CMO2_AI_PROVIDER:-stub}
+      CMO2_AI_API_KEY: ${CMO2_AI_API_KEY:-}
+      CMO2_AI_OPENAI_API_KEY: ${CMO2_AI_OPENAI_API_KEY:-}
+
+volumes:
+  mysql_demo_data:

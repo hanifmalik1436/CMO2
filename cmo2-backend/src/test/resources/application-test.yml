@@ -1,0 +1,65 @@
+# Test profile: in-memory H2 (MySQL compatibility mode), Hibernate creates the schema,
+# Flyway disabled. Keeps the tenant-isolation tests fast and self-contained.
+spring:
+  datasource:
+    url: jdbc:h2:mem:cmo2test;MODE=MySQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    enabled: false
+  data:
+    redis:
+      repositories:
+        enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.data.redis.RedisAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.redis.RedisRepositoriesAutoConfiguration
+  # Mail autoconfig stays ON (spring.mail.host=localhost from application.yml), so the
+  # JavaMailSender bean exists for MailService; sends just fail-and-log in tests.
+  mail:
+    host: localhost
+    port: 1025
+  # No Flyway in tests, so no QRTZ_ tables: schedules live in memory for the test run.
+  quartz:
+    job-store-type: memory
+
+cmo2:
+  auth:
+    self-registration: open  # tests register many independent tenants
+  jwt:
+    secret: "test-only-secret-test-only-secret-test-only-secret-test-only-secret"
+    access-token-ttl-seconds: 900
+    refresh-token-ttl-seconds: 604800
+    issuer: cmo2-test
+  crypto:
+    master-key: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+  security:
+    max-failed-logins: 5
+    lockout-minutes: 15
+  cors:
+    allowed-origins: http://localhost:5173
+  loop:
+    stage-delay-ms: 0        # run cycles instantly in tests
+  billing:
+    provider: stub           # no Stripe account in tests; demo gateway drives the lifecycle
+  ratelimit:
+    enabled: false           # deterministic tests; rate limiting is verified separately
+  alerts:
+    eval-interval-ms: 3600000
+    eval-initial-delay-ms: 3600000   # alert scheduler effectively never fires during tests
+  reports:
+    weekly-interval-ms: 3600000
+    weekly-initial-delay-ms: 3600000 # weekly report scheduler effectively never fires during tests
+  integrations:
+    sync-interval-ms: 3600000
+    sync-initial-delay-ms: 3600000   # effectively never auto-sync during tests
+    gohighlevel:
+      demo-mode: true

@@ -1,0 +1,30 @@
+Prod-Ready Checklist
+Done - 1. Real integration implementations (biggest gap — code, not config)
+
+GoHighLevel live mode: GoHighLevelConnector.java needs real pullData() (currently returns empty KPIs) and real deployAsset() (currently unsupported() in live mode).
+13 expansion connectors (ReachInbox, LinkedIn, Meta, Google Ads, TikTok, Stripe-data, PayPal, etc.): all currently DemoConnector instances — no live HTTP calls exist for any of them. Each needs its own connector class against its platform's real API.
+Notion/Linear auto-docs: DocumentationService.java only logs intent when keys are present — no actual HTTP push implemented.
+
+2. Flip stub → real providers (config-only, code already works)
+
+CMO2_AI_PROVIDER=anthropic + ANTHROPIC_API_KEY
+cmo2.billing.provider=stripe + Stripe keys (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, STRIPE_PUBLISHABLE_KEY)
+Real SMTP/SES (SENDGRID_API_KEY or AWS_SES_*) — Mailhog is dev-only
+TWILIO_* for real SMS
+SLACK_WEBHOOK_URL for real Slack alerts
+3. Secrets & infra
+
+Generate and store the AES-256-GCM master key for credential envelope encryption outside the repo (Docker secrets / vault) — never the dev default.
+Rotate/replace any placeholder secrets in .env.example derivatives used for staging.
+Point SPRING_DATASOURCE_* and Redis at managed/production instances, not localhost.
+4. Operational hardening not yet verified in code
+
+TLS termination / reverse proxy config (not something I've seen in docker-compose.yml — worth checking if this matters for your deploy target).
+Backups + point-in-time recovery for MySQL.
+Rate-limit tuning (Bucket4j is wired per CLAUDE.md, but production thresholds vs. dev defaults should be reviewed).
+Structured logging/monitoring/alerting on the app itself (distinct from the in-app Alerts feature) — e.g. Sentry, CloudWatch, or similar.
+Load testing the Strange Loop scheduler + sync jobs at real tenant volume.
+5. Test/CI gate
+
+Confirm the tenant-leak suite (TenantIsolationTest) and mvn verify run in CI on every PR — I saw the test file but didn't check .github workflow wiring.
+Want me to check the .github CI workflow and docker-compose.yml next to confirm what's actually automated versus what still needs to be set up manually?

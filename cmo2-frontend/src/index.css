@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: #e5e7eb;
+  background-color: #0b1020;
+}
+
+@layer components {
+  /* Reusable glass surface used across the prototype-inspired UI */
+  .glass {
+    @apply rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-glass;
+  }
+  .input {
+    @apply w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-100
+           placeholder-gray-500 outline-none focus:border-brand-glow focus:ring-1 focus:ring-brand-glow;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
+           transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-brand-dark;
+  }
+  .btn-ghost {
+    @apply btn border border-white/10 bg-transparent text-gray-200 hover:bg-white/5;
+  }
+  .label {
+    @apply mb-1 block text-xs font-medium uppercase tracking-wide text-gray-400;
+  }
+}
