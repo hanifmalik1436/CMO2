@@ -5,15 +5,43 @@ import { GlassCard, PageHeader } from '../../components/ui/GlassCard'
 import { TrafficLight } from '../../components/ui/TrafficLight'
 import RequireRole from '../../app/guards/RequireRole'
 import { apiErrorMessage } from '../../lib/api'
-import { disconnectAgency, enableSubAccount, getAgencyStatus, listLoopSchedules, listSubAccounts } from './customersApi'
+import { disconnectAgency, enableSubAccount, getAgencyStatus, getGhlMode, listLoopSchedules, listSubAccounts } from './customersApi'
 import { listApprovals } from '../assets/assetsApi'
 import { describeSchedule } from './CustomerLoopPanels'
 import { listDocTargets, provisionDocTargets } from '../settings/docsApi'
-import type { ApprovalItem, DocTargets, GhlAgencyStatus, GhlSubAccount, LoopSchedule } from '../../lib/types'
+import type { ApprovalItem, DocTargets, GhlAgencyStatus, GhlModeInfo, GhlSubAccount, LoopSchedule } from '../../lib/types'
 
 export default function CustomersPage() {
-  const agency = useQuery<GhlAgencyStatus>({ queryKey: ['ghl', 'agency'], queryFn: getAgencyStatus })
+  const mode = useQuery<GhlModeInfo>({ queryKey: ['ghl', 'mode'], queryFn: getGhlMode })
+  const agencyEnabled = mode.data?.agencyEnabled ?? false
+  const agency = useQuery<GhlAgencyStatus>({
+    queryKey: ['ghl', 'agency'],
+    queryFn: getAgencyStatus,
+    enabled: agencyEnabled,
+  })
   const connected = agency.data?.connected ?? false
+
+  if (mode.isLoading) {
+    return (
+      <div>
+        <PageHeader title="Customers" subtitle="Loading GoHighLevel mode…" />
+        <GlassCard><p className="text-sm text-gray-400">Checking your GoHighLevel integration mode…</p></GlassCard>
+      </div>
+    )
+  }
+
+  if (mode.isError || !mode.data) {
+    return (
+      <div>
+        <PageHeader title="Customers" subtitle="Could not load GoHighLevel mode." />
+        <GlassCard><p className="text-sm text-red-300">{apiErrorMessage(mode.error, 'Could not load integration mode')}</p></GlassCard>
+      </div>
+    )
+  }
+
+  if (!mode.data.agencyEnabled) {
+    return <SingleSubaccountModeCard />
+  }
 
   return (
     <div>
@@ -32,6 +60,31 @@ export default function CustomersPage() {
         <AgencyCard query={agency} />
         {connected && <SubAccountList />}
       </RequireRole>
+    </div>
+  )
+}
+
+function SingleSubaccountModeCard() {
+  return (
+    <div>
+      <PageHeader
+        title="Customers"
+        subtitle="Agency onboarding is disabled in this environment. Use direct company integrations for development."
+      />
+      <GlassCard>
+        <h3 className="font-semibold text-white">Single sub-account development mode is enabled</h3>
+        <p className="mt-2 text-sm text-gray-300">
+          No tenant or customer data is removed. To test now without an agency account:
+        </p>
+        <ol className="mt-3 list-inside list-decimal space-y-1 text-sm text-gray-300">
+          <li>Create or choose a company in <Link className="underline decoration-white/30 hover:decoration-white" to="/companies">Companies</Link>.</li>
+          <li>Open <Link className="underline decoration-white/30 hover:decoration-white" to="/integrations">Integrations</Link>.</li>
+          <li>Connect GoHighLevel using your key and sub-account location id.</li>
+        </ol>
+        <p className="mt-3 text-xs text-gray-500">
+          To restore agency onboarding later, set <code>CMO2_GHL_MODE=agency</code> and restart the backend.
+        </p>
+      </GlassCard>
     </div>
   )
 }

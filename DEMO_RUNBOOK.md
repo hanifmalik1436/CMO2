@@ -18,6 +18,7 @@ seeding if `owner@demo.cmo2` already exists):
 - **3 customers**: Northwind Solar, Bright Dental and Apex Fitness, each with a **simulated GoHighLevel
   connection** that has already synced, so there are figures and charts
 - **Drafts waiting in Approvals**: a 7-email welcome sequence for Northwind, in English and Spanish
+- **A Content Studio source for Northwind**: a podcast transcript ("why solar quotes stall") with 6 ideas
 - **A Strange Loop cycle for Northwind**: its plan, a social post draft, a learning record, an
   experiment proposal, and the cycle's record (kept in CMO², because no Notion/Confluence is connected)
 - **Alert rules and one fired alert**, **two PDF reports**, and a **strategist session** with
@@ -73,7 +74,7 @@ npm install
 npm run dev
 ```
 
-On first start, Flyway creates all tables (16 migrations, including Quartz's schedule tables).
+On first start, Flyway creates all tables (17 migrations, including Quartz's schedule tables).
 Wait for this banner in the backend log:
 
 ```
@@ -140,12 +141,20 @@ Sign in as **`owner@demo.cmo2` / `demo1234`**.
    - **Reject** the Spanish version with a reason. The reason stays with the draft (and with its
      experiment, if it has one).
 
-5. **Strange Loop.** Run a cycle for a customer and watch the five stages complete live (plan → learn →
+5. **Content Studio.** Pick Northwind Solar: the podcast transcript and its 6 ideas are ready.
+   - Tick two ideas (and keep **Full transcript** ticked), open LinkedIn → **Post**, X → **Thread**,
+     Instagram → **Reel script**. The bar reads *3 sources · 3 formats · 9 pieces*.
+   - **Generate batch**: the progress bar fills, then **Review 9 drafts in Approvals**.
+   - In Approvals, the LinkedIn post offers **Schedule in GoHighLevel**; the X thread and the reel script
+     offer **Copy text** instead, because GHL can't publish those.
+   - **+ New source** takes any pasted text; **Re-analyze** finds a fresh set of ideas.
+
+6. **Strange Loop.** Run a cycle for a customer and watch the five stages complete live (plan → learn →
    record → report → experiments). Go back to the customer's page: there's a new record.
 
-6. **Integrations.** Each customer's GoHighLevel connection: health, sync history, **Sync now**.
+7. **Integrations.** Each customer's GoHighLevel connection: health, sync history, **Sync now**.
 
-7. **Settings → Workspace tools.** Where you connect your own Notion, Confluence, Linear and Slack.
+8. **Settings → Workspace tools.** Where you connect your own Notion, Confluence, Linear and Slack.
    Optional: connect your own Notion, run a cycle, and show the page it writes.
 
 **Optional extras:** Analytics (forecast and the what-if simulator), Alerts (**Simulate spike**,

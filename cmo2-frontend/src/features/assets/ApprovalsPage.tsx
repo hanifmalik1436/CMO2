@@ -8,7 +8,8 @@ import { listCompanies } from '../companies/companiesApi'
 import {
   approveAsset, assetBody, editAssetContent, listApprovals, listSocialAccounts, publishAsset, rejectAsset,
 } from './assetsApi'
-import type { ApprovalItem, AssetStatus, Company, SocialAccounts } from '../../lib/types'
+import type { ApprovalItem, AssetStatus, Company, SocialAccounts, StudioFormat } from '../../lib/types'
+import { listStudioFormats } from '../studio/studioApi'
 
 const TABS: { status: AssetStatus; label: string }[] = [
   { status: 'PENDING_APPROVAL', label: 'Waiting' },
@@ -88,6 +89,7 @@ export default function ApprovalsPage() {
 function DraftCard({ item }: { item: ApprovalItem }) {
   const qc = useQueryClient()
   const a = item.asset
+  const format = useFormat(a.contentFormat)
   const pending = a.status === 'PENDING_APPROVAL'
   const [text, setText] = useState(() => assetBody(a))
   const [rejecting, setRejecting] = useState(false)
@@ -115,7 +117,8 @@ function DraftCard({ item }: { item: ApprovalItem }) {
         <div>
           <h3 className="font-semibold text-white">{item.companyName ?? `Customer #${a.companyId}`}</h3>
           <p className="text-xs text-gray-500">
-            {a.type.replace(/_/g, ' ').toLowerCase()} · {a.language} · v{a.version} · {new Date(a.createdAt).toLocaleString()}
+            {format ? `${format.platformLabel} · ${format.label.toLowerCase()}` : a.type.replace(/_/g, ' ').toLowerCase()}
+            {' '}· {a.language} · v{a.version} · {new Date(a.createdAt).toLocaleString()}
           </p>
         </div>
         <StatusPill status={a.status} />
@@ -181,7 +184,46 @@ function DraftCard({ item }: { item: ApprovalItem }) {
   )
 }
 
+/** The Content Studio format a draft was written for, if any (the catalogue is fetched once and cached). */
+function useFormat(key: string | null): StudioFormat | undefined {
+  const formats = useQuery<StudioFormat[]>({ queryKey: ['studio', 'formats'], queryFn: listStudioFormats, staleTime: Infinity })
+  return key ? formats.data?.find((f) => f.key === key) : undefined
+}
+
 function PublishPanel({ item, onDone }: { item: ApprovalItem; onDone: () => void }) {
+  const a = item.asset
+  const format = useFormat(a.contentFormat)
+  if (format && !format.publishable) return <CopyPanel item={item} platform={format.platformLabel} />
+  return <PostPanel item={item} onDone={onDone} format={format} />
+}
+
+/** Threads, carousels, scripts, articles and newsletters: approved here, then pasted into the platform. */
+function CopyPanel({ item, platform }: { item: ApprovalItem; platform: string }) {
+  const [copied, setCopied] = useState(false)
+  return (
+    <div className="mt-4 rounded-lg border border-white/10 p-3">
+      <h4 className="text-sm font-semibold text-white">Use it</h4>
+      <p className="mt-2 text-xs text-gray-400">
+        GoHighLevel can't schedule this format, so copy the approved text into {platform}.
+      </p>
+      <button
+        className="btn-primary mt-3"
+        onClick={async () => {
+          try {
+            await navigator.clipboard.writeText(assetBody(item.asset))
+            setCopied(true)
+          } catch {
+            setCopied(false)
+          }
+        }}
+      >
+        {copied ? 'Copied' : 'Copy text'}
+      </button>
+    </div>
+  )
+}
+
+function PostPanel({ item, onDone, format }: { item: ApprovalItem; onDone: () => void; format?: StudioFormat }) {
   const a = item.asset
   const social = a.type === 'SOCIAL_MEDIA'
   const unconfirmed = item.latestDeployment?.status === 'UNCONFIRMED'
@@ -197,7 +239,9 @@ function PublishPanel({ item, onDone }: { item: ApprovalItem; onDone: () => void
   const [error, setError] = useState<string | null>(null)
 
   const usable = (accounts.data?.accounts ?? []).filter((x) => !x.expired)
-  const selected = chosen ?? usable.map((x) => x.id)
+  // A studio draft written for one platform starts with that platform's accounts ticked.
+  const matching = format?.ghlPlatform ? usable.filter((x) => x.platform === format.ghlPlatform) : []
+  const selected = chosen ?? (matching.length ? matching : format?.ghlPlatform ? [] : usable).map((x) => x.id)
   const live = social && accounts.data?.live
 
   const publish = useMutation({
@@ -225,6 +269,14 @@ function PublishPanel({ item, onDone }: { item: ApprovalItem; onDone: () => void
         </p>
       )}
 
+      {live && format?.ghlPlatform && matching.length === 0 && (
+        <p className="mt-2 text-xs text-amber-300">
+          No {format.platformLabel} account is connected in this customer's GoHighLevel. Pick another account or connect one in GHL.
+        </p>
+      )}
+      {live && format?.key === 'INSTAGRAM_CAPTION' && (
+        <p className="mt-2 text-xs text-gray-400">Instagram posts need an image: add its link below.</p>
+      )}
       {live && (
         <div className="mt-3 space-y-3">
           <div className="flex flex-wrap gap-3">

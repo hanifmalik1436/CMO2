@@ -19,6 +19,7 @@ const NAV: NavItem[] = [
   { to: '/companies', label: 'Companies', icon: '◳', ready: true },
   { to: '/strange-loop', label: 'Strange Loop', icon: '↻', ready: true },
   { to: '/integrations', label: 'Integrations', icon: '⇄', ready: true },
+  { to: '/content-studio', label: 'Content Studio', icon: '✎', ready: true },
   { to: '/assets', label: 'Asset Generator', icon: '✦', ready: true },
   { to: '/approvals', label: 'Approvals', icon: '✓', ready: true },
   { to: '/strategists', label: 'AI Strategists', icon: '◎', ready: true },

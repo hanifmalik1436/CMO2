@@ -17,6 +17,8 @@ import com.cmo2.integrations.service.SyncService;
 import com.cmo2.reports.service.ReportService;
 import com.cmo2.shared.security.TenantContext;
 import com.cmo2.strangeloop.service.LoopService;
+import com.cmo2.studio.dto.StudioDtos.CreateSourceRequest;
+import com.cmo2.studio.service.StudioService;
 import com.cmo2.strategists.service.ReviewGateService;
 import com.cmo2.strategists.service.SessionService;
 import com.cmo2.tenancy.domain.PlanCode;
@@ -79,6 +81,7 @@ public class DemoDataSeeder implements ApplicationRunner {
     private final ReviewGateService reviewGateService;
     private final LoopService loopService;
     private final ReportService reportService;
+    private final StudioService studioService;
 
     public DemoDataSeeder(TenantRepository tenants, UserRepository users, RoleRepository roles,
                           PasswordEncoder encoder, BillingLifecycleService billingLifecycle,
@@ -86,7 +89,7 @@ public class DemoDataSeeder implements ApplicationRunner {
                           SyncService syncService, AlertService alertService,
                           GenerationService generationService, SessionService sessionService,
                           ReviewGateService reviewGateService, LoopService loopService,
-                          ReportService reportService) {
+                          ReportService reportService, StudioService studioService) {
         this.tenants = tenants;
         this.users = users;
         this.roles = roles;
@@ -101,6 +104,7 @@ public class DemoDataSeeder implements ApplicationRunner {
         this.reviewGateService = reviewGateService;
         this.loopService = loopService;
         this.reportService = reportService;
+        this.studioService = studioService;
     }
 
     @Override
@@ -179,6 +183,12 @@ public class DemoDataSeeder implements ApplicationRunner {
             reviewGateService.approve(northwind, "RG-1", "Approved for the demo walkthrough.");
         });
 
+        safe("content studio source + ideas", () -> {
+            var source = studioService.createSource(northwind,
+                    new CreateSourceRequest("Podcast: why solar quotes stall", "TRANSCRIPT", DEMO_TRANSCRIPT));
+            studioService.analyze(source.source().id(), 6);
+        });
+
         safe("Strange Loop cycle", () -> loopService.runCycle(northwind));
 
         safe("leadership reports", () -> {
@@ -186,6 +196,21 @@ public class DemoDataSeeder implements ApplicationRunner {
             reportService.generateForCompany(apexFitness);
         });
     }
+
+    /** A short podcast transcript for the Content Studio demo (Northwind Solar's founder). */
+    private static final String DEMO_TRANSCRIPT = """
+            Host: Welcome back. Today I'm talking to the founder of Northwind Solar about why so many solar quotes never turn into installs.
+            Founder: Thanks for having me. Honestly, most homeowners don't say no to solar, they just stop replying after the quote.
+            The biggest reason is that the quote shows a price but not what they save each month, so it feels like a cost, not an investment.
+            We changed our quotes to lead with the monthly saving and the payback year, and replies went up within a few weeks.
+            Another thing people underestimate is speed: if you call back within an hour of an enquiry, you are usually the only installer they talk to.
+            Most installers send a PDF and wait, but a two-minute video walking through the roof plan builds far more trust than a document.
+            Reviews matter too, and the best time to ask for one is the day the panels switch on, when the customer is most excited.
+            People also worry about the winter months, so we show them a full year of expected generation, not just the sunny summer numbers.
+            If I could give one piece of advice to any local business, it would be to stop selling the product and start selling the outcome.
+            Host: That's a great place to finish. Where can people find you?
+            Founder: Just search Northwind Solar, and ask for a free roof survey.
+            """;
 
     private long company(String name, String industry, String voice, String website) {
         return companyService.create(new CreateCompanyRequest(name, industry, voice, website)).id();

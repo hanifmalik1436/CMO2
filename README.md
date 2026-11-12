@@ -122,6 +122,13 @@ Demo mode is on by default (`CMO2_GHL_DEMO_MODE=true`) so anyone can try the ful
 connect with any key (e.g. `demo-key-123456`), hit **Sync now**, watch KPIs appear. For real
 data, set `CMO2_GHL_DEMO_MODE=false` and provide a real GoHighLevel API key.
 
+You can also choose the integration surface with `CMO2_GHL_MODE`:
+- `agency` (default): Marketplace agency OAuth + sub-account onboarding pages
+- `single-subaccount`: disables agency-only endpoints/UI and keeps direct per-company
+  integration (key + location id) for low-cost development/testing
+
+Switching this mode does **not** delete tenant/company data.
+
 ### Billing: stub vs. real Stripe
 Billing defaults to a **stub gateway** (`CMO2_BILLING_PROVIDER=stub`) so the full
 **sign-up → pay → use** flow works with no Stripe account: on the **Billing** page, "checkout"
@@ -324,6 +331,7 @@ All configuration is via environment variables. A complete, commented template l
 | `CMO2_LOOP_STAGE_DELAY_MS` / `CMO2_LOOP_RESCHEDULE_SECONDS` | no | 600 / 86400 | Strange Loop timing |
 | `CMO2_SYNC_INTERVAL_MS` / `CMO2_SYNC_INITIAL_DELAY_MS` | no | 60000 / 20000 | Background KPI sync cadence |
 | `CMO2_GHL_DEMO_MODE` | no | `true` | GoHighLevel demo data vs. live API |
+| `CMO2_GHL_MODE` | no | `agency` | `agency` or `single-subaccount` integration surface |
 | `CMO2_GHL_BASE_URL` | no | `https://rest.gohighlevel.com` | GHL API base |
 | `CMO2_GHL_WEBHOOK_SECRET` | no | — | HMAC secret for inbound GHL webhooks |
 | `CMO2_AI_PROVIDER` | no | `stub` | `stub` (demo, no key) or `anthropic` (real Claude) |

@@ -1,6 +1,7 @@
 package com.cmo2.assets.service;
 
 import com.cmo2.ai.AiCallScope;
+import com.cmo2.ai.AiMessages.AiRequest;
 import com.cmo2.ai.AiMessages.AiResult;
 import com.cmo2.ai.AiService;
 import com.cmo2.ai.PromptRegistry;
@@ -73,6 +74,42 @@ public class GenerationService {
     @Transactional
     public GenerateResponse generateForCycle(Long companyId, String typeName, String brief) {
         return generateInScope(companyId, typeName, brief);
+    }
+
+    /** Where a Content Studio draft came from: its platform and format, batch and idea. */
+    public record StudioOrigin(String platform, String contentFormat, Long batchId, Long ideaId) {}
+
+    /**
+     * Internal (Content Studio batches run in the background with no signed-in user): writes one
+     * draft from a format agent's prompt, optionally with a Spanish copy. The caller holds the AI
+     * scope. The draft waits for approval like any other.
+     */
+    @Transactional
+    public AssetResponse draftFromPrompt(Long companyId, AssetType type, String title, AiRequest request,
+                                         StudioOrigin origin, boolean translate) {
+        TenantGuard.owned(companyRepository.findById(companyId))
+                .orElseThrow(() -> ApiException.notFound("Company not found"));
+        AiResult result = aiService.generate(request);
+
+        Asset draft = new Asset();
+        draft.setCompanyId(companyId);
+        draft.setType(type);
+        draft.setLanguage(Language.EN);
+        draft.setStatus(AssetStatus.PENDING_APPROVAL);
+        draft.setTitle(title.length() <= 255 ? title : title.substring(0, 255));
+        draft.setVersion(1);
+        draft.setPlatform(origin.platform());
+        draft.setContentFormat(origin.contentFormat());
+        draft.setBatchId(origin.batchId());
+        draft.setIdeaId(origin.ideaId());
+        draft.setTokensUsed((int) Math.min(Integer.MAX_VALUE, result.totalTokens()));
+        draft.setContentJson(translator.toContentJson(draft.getTitle(), Language.EN, result.text(), result.model()));
+        draft = assetRepository.save(draft);
+        if (translate) {
+            translator.translateToSpanish(draft, result.text());
+        }
+        // No AssetGeneratedEvent per piece: a batch can make dozens, so it announces itself once.
+        return AssetResponse.of(draft);
     }
 
     private GenerateResponse generateInScope(Long companyId, String typeName, String brief) {

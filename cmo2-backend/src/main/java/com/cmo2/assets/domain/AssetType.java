@@ -1,6 +1,6 @@
 package com.cmo2.assets.domain;
 
-/** The seven generated content types. */
+/** Generated content types. The last three come from the Content Studio. */
 public enum AssetType {
     EMAIL_SEQUENCE("Email Sequence"),
     EBOOK("eBook"),
@@ -8,7 +8,11 @@ public enum AssetType {
     SOCIAL_MEDIA("Social Media"),
     LANDING_PAGE("Landing Page"),
     SMS_CAMPAIGN("SMS Campaign"),
-    CHATBOT_SCRIPT("Chatbot Script");
+    CHATBOT_SCRIPT("Chatbot Script"),
+    // Content Studio formats that aren't a single post:
+    VIDEO_SCRIPT("Video Script"),
+    CAROUSEL("Carousel"),
+    NEWSLETTER("Newsletter");
 
     public final String displayName;
 

@@ -44,6 +44,10 @@ public class Translator {
         es.setStatus(AssetStatus.PENDING_APPROVAL);
         es.setTitle(english.getTitle());
         es.setParentAssetId(english.getId());
+        es.setPlatform(english.getPlatform());
+        es.setContentFormat(english.getContentFormat());
+        es.setBatchId(english.getBatchId());
+        es.setIdeaId(english.getIdeaId());
         es.setVersion(english.getVersion());
         es.setTokensUsed((int) Math.min(Integer.MAX_VALUE, result.totalTokens()));
         es.setContentJson(toContentJson(english.getTitle(), Language.ES, result.text(), result.model()));

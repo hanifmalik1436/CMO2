@@ -1,8 +1,12 @@
 import { api } from '../../lib/api'
 import type {
-  AiInteraction, CustomerProfile, CustomerProfileInput, CycleRecord, Experiment, GhlAgencyStatus, GhlSubAccount,
+  AiInteraction, CustomerProfile, CustomerProfileInput, CycleRecord, Experiment, GhlAgencyStatus, GhlModeInfo, GhlSubAccount,
   KpiTrend, LearningRecord, LoopSchedule, LoopScheduleInput,
 } from '../../lib/types'
+
+export async function getGhlMode(): Promise<GhlModeInfo> {
+  return (await api.get<GhlModeInfo>('/api/ghl/mode')).data
+}
 
 export async function getAgencyStatus(): Promise<GhlAgencyStatus> {
   return (await api.get<GhlAgencyStatus>('/api/ghl/agency')).data

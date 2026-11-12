@@ -1,3 +1,7 @@
+> **DEPRECATED (30 October 2026).** Superseded by `CLAUDE.md`. This describes the original
+> self-serve SaaS plan (public sign-up, Stripe billing, 15 connectors), which was replaced by the
+> owner-only GoHighLevel console. Kept for history only; don't follow it.
+
 # CLAUDE.md — CMO² Master Command Platform
 
 > Guidance for AI coding assistants (and human developers) working in this repo.
@@ -69,6 +73,7 @@ tenancy/        tenants, companies, onboarding wizard state machine
 billing/        StripeService, WebhookController, PlanLimitGuard
 integrations/   core (PlatformConnector iface) + one folder per platform + webhooks
 assets/         GenerationService, templates, Translator, Deployer, versioning
+studio/         Content Studio: sources → ideas → batches of per-format drafts (ContentBatchRunner)
 strategists/    AgentRegistry (17 agents), SessionService, ReviewGateService
 strangeloop/    orchestrator (LoopOrchestrator) + stages (Stage1..Stage5)
 analytics/      KpiIngestor, Aggregator, ReportGenerator (PDF)

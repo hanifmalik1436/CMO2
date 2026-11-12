@@ -31,23 +31,34 @@ public class GhlController {
 
     private final GhlAgencyService agency;
     private final GhlCustomerService customers;
+    private final GhlIntegrationModeService mode;
 
-    public GhlController(GhlAgencyService agency, GhlCustomerService customers) {
+    public GhlController(GhlAgencyService agency, GhlCustomerService customers, GhlIntegrationModeService mode) {
         this.agency = agency;
         this.customers = customers;
+        this.mode = mode;
     }
 
     public record ConnectAgencyRequest(@NotBlank @Size(max = 4096) String code) {}
+    public record ModeStatus(String mode, boolean agencyEnabled) {}
+
+    @GetMapping("/mode")
+    @Operation(summary = "Current GHL integration mode")
+    public ModeStatus mode() {
+        return new ModeStatus(mode.mode(), mode.agencyEnabled());
+    }
 
     @GetMapping("/agency")
     @Operation(summary = "Whether the GHL app is configured and the agency is connected")
     public AgencyStatus status() {
+        mode.requireAgencyMode();
         return agency.status();
     }
 
     @PostMapping("/agency/connect")
     @Operation(summary = "Complete the agency install: exchange the code GHL sent back for agency tokens")
     public AgencyStatus connect(@Valid @RequestBody ConnectAgencyRequest request) {
+        mode.requireAgencyMode();
         return agency.connect(request.code());
     }
 
@@ -55,12 +66,14 @@ public class GhlController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Disconnect the GHL agency")
     public void disconnect() {
+        mode.requireAgencyMode();
         agency.disconnect();
     }
 
     @GetMapping("/sub-accounts")
     @Operation(summary = "Every sub-account under the agency, and which are enabled as customers")
     public List<SubAccount> subAccounts() {
+        mode.requireAgencyMode();
         return customers.listSubAccounts();
     }
 
@@ -68,6 +81,7 @@ public class GhlController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Enable a sub-account as a customer: creates the company and connects it through the agency")
     public SubAccount enable(@PathVariable String locationId) {
+        mode.requireAgencyMode();
         return customers.enable(locationId);
     }
 }

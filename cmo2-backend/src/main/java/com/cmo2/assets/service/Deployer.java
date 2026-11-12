@@ -4,6 +4,7 @@ import com.cmo2.assets.domain.Asset;
 import com.cmo2.assets.domain.AssetDeployment;
 import com.cmo2.assets.domain.AssetStatus;
 import com.cmo2.assets.domain.AssetType;
+import com.cmo2.assets.domain.ContentFormat;
 import com.cmo2.assets.domain.DeploymentStatus;
 import com.cmo2.assets.dto.AssetDtos.DeployRequest;
 import com.cmo2.assets.dto.AssetDtos.DeploymentResponse;
@@ -100,6 +101,11 @@ public class Deployer {
         }
         if (asset.getStatus() != AssetStatus.APPROVED) {
             throw ApiException.conflict("Approve this draft before publishing it (it's " + asset.getStatus() + ")");
+        }
+        ContentFormat format = ContentFormat.of(asset.getContentFormat());
+        if (format != null && !format.publishable) {
+            throw ApiException.conflict(format.platformLabel + " " + format.label.toLowerCase()
+                    + "s aren't published through GoHighLevel. Copy the approved text into " + format.platformLabel + ".");
         }
         Optional<AssetDeployment> last = deploymentRepository.findByAssetIdOrderByCreatedAtDesc(assetId).stream().findFirst();
         if (last.isPresent() && last.get().getStatus() == DeploymentStatus.UNCONFIRMED && !request.confirmRetry()) {

@@ -13,6 +13,7 @@ import StrangeLoopPage from '../features/strangeLoop/StrangeLoopPage'
 import IntegrationsPage from '../features/integrations/IntegrationsPage'
 import AssetGeneratorPage from '../features/assets/AssetGeneratorPage'
 import ApprovalsPage from '../features/assets/ApprovalsPage'
+import ContentStudioPage from '../features/studio/ContentStudioPage'
 import StrategistsPage from '../features/strategists/StrategistsPage'
 import AnalyticsPage from '../features/analytics/AnalyticsPage'
 import ReportsPage from '../features/reports/ReportsPage'
@@ -42,6 +43,7 @@ export const router = createBrowserRouter([
           { path: '/integrations', element: <IntegrationsPage /> },
           { path: '/assets', element: <AssetGeneratorPage /> },
           { path: '/approvals', element: <ApprovalsPage /> },
+          { path: '/content-studio', element: <ContentStudioPage /> },
           { path: '/strategists', element: <StrategistsPage /> },
           { path: '/analytics', element: <AnalyticsPage /> },
           { path: '/reports', element: <ReportsPage /> },

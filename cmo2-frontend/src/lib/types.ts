@@ -74,6 +74,10 @@ export interface Asset {
   reviewedBy: number | null
   reviewedAt: string | null
   reviewNote: string | null
+  /** Content Studio drafts only: the platform and format it was written for. */
+  platform: string | null
+  contentFormat: string | null
+  batchId: number | null
 }
 
 /** GENERATED and TRANSLATED only appear on drafts made before approvals existed. */
@@ -452,6 +456,11 @@ export interface LoopUpdate {
 
 // ---- GoHighLevel agency + customers ----
 
+export interface GhlModeInfo {
+  mode: 'agency' | 'single-subaccount'
+  agencyEnabled: boolean
+}
+
 export interface GhlAgencyStatus {
   appConfigured: boolean
   installUrl: string | null
@@ -662,4 +671,69 @@ export interface Experiment {
   createdAt: string
   appliedAt: string | null
   measuredAt: string | null
+}
+
+/** A Content Studio format: one platform and post type, with its AI agent's instructions. */
+export interface StudioFormat {
+  key: string
+  platform: string
+  platformLabel: string
+  label: string
+  assetType: string
+  /** True when GoHighLevel's Social Planner can schedule it as a single post. */
+  publishable: boolean
+  ghlPlatform: string | null
+  maxChars: number
+  guidance: string
+}
+
+export type ContentSourceKind = 'TRANSCRIPT' | 'NOTES' | 'ARTICLE'
+
+export interface ContentSourceSummary {
+  id: number
+  companyId: number
+  title: string
+  kind: ContentSourceKind
+  characters: number
+  preview: string
+  analyzedAt: string | null
+  ideaCount: number
+  createdAt: string
+}
+
+export interface ContentIdea {
+  id: number
+  type: 'INSIGHT' | 'STORY' | 'TIP' | 'CONTRARIAN' | 'HOW_TO' | 'STAT'
+  title: string
+  summary: string | null
+  hooks: string[]
+  quote: string | null
+}
+
+export interface ContentSourceDetail {
+  source: ContentSourceSummary
+  body: string
+  ideas: ContentIdea[]
+}
+
+export interface ContentBatch {
+  id: number
+  companyId: number
+  sourceId: number
+  status: 'RUNNING' | 'COMPLETED' | 'PARTIAL' | 'FAILED'
+  totalPieces: number
+  completed: number
+  failed: number
+  note: string | null
+  createdAt: string
+  finishedAt: string | null
+}
+
+export interface ContentBatchInput {
+  sourceId: number
+  includeFullSource: boolean
+  ideaIds: number[]
+  formats: string[]
+  draftsPerFormat: number
+  translate: boolean
 }

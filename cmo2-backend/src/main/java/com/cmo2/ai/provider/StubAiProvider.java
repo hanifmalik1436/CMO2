@@ -29,7 +29,11 @@ public class StubAiProvider implements AiProvider {
     public AiResult generate(AiRequest request, String modelId) {
         String kind = request.kind() == null ? "" : request.kind();
         String text;
-        if (request.jsonSchema() != null) {
+        if ("CONTENT_IDEAS".equals(kind) && request.jsonSchema() != null) {
+            text = StubContentWriter.ideas(request.userPrompt(), maxItems(request.jsonSchema(), "ideas", 8));
+        } else if (kind.startsWith("STUDIO:")) {
+            text = StubContentWriter.piece(kind.substring("STUDIO:".length()), request.systemPrompt(), request.userPrompt());
+        } else if (request.jsonSchema() != null) {
             text = sampleJson(request.jsonSchema(), "answer").toString();
         } else if (kind.startsWith("STRAT:")) {
             text = strategistDeliverable(kind.substring("STRAT:".length()));
@@ -113,6 +117,15 @@ public class StubAiProvider implements AiProvider {
     private String translate(String body) {
         // Demo translation: marks the text as Spanish without a real translation engine.
         return "[ES] (traducción de demostración)\n\n" + (body == null ? "" : body);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static int maxItems(Map<String, Object> schema, String property, int fallback) {
+        if (schema.get("properties") instanceof Map<?, ?> props && ((Map<String, Object>) props).get(property) instanceof Map<?, ?> arr
+                && ((Map<String, Object>) arr).get("maxItems") instanceof Number n) {
+            return n.intValue();
+        }
+        return fallback;
     }
 
     /** A small value that matches {@code schema}: one array item, the first enum value, labelled strings. */

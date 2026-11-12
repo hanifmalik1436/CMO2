@@ -34,6 +34,20 @@ public class Asset extends BaseTenantEntity {
     @Column(nullable = false, length = 8)
     private Language language = Language.EN;
 
+    /** The platform a Content Studio draft was written for (X, LINKEDIN…); null for other drafts. */
+    @Column(length = 24)
+    private String platform;
+
+    /** The Content Studio format (X_POST, LINKEDIN_CAROUSEL…); null for other drafts. */
+    @Column(name = "content_format", length = 40)
+    private String contentFormat;
+
+    @Column(name = "batch_id")
+    private Long batchId;
+
+    @Column(name = "idea_id")
+    private Long ideaId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 24)
     private AssetStatus status = AssetStatus.PENDING_APPROVAL;
