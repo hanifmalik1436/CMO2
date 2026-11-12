@@ -66,6 +66,35 @@ can be kept separate and loaded back for the daily cycle and for any other AI ta
   `ContentStudioLiveRoutingTest` does.
 - A rejected draft's reason shows up in that customer's next studio prompt.
 
+### 4. Stop identity drift over years of history
+Raised 12 Nov 2026: once a customer has years of cycles, summarizing "the last few cycles" can
+slowly rewrite who they are. The fix is to keep **identity** (owner-approved, fixed) and
+**history** (recent, changing) in separate layers, so history can never outvote identity.
+
+- **Richer, versioned identity ("brand canon").** Extend `CustomerProfile`
+  (`customers/domain/CustomerProfile.java`) beyond offer/audience/banned topics with: positioning,
+  3–5 owner-approved "golden" posts as voice examples, phrases to use and avoid, and claims the
+  business may/may not make. Keep every version (new table `customer_profile_versions`, or a
+  `JSON` history column); nothing changes live until the owner approves it, same gate as
+  client-facing drafts.
+- **Long-term lessons, promoted and capped.** A new `customer_lessons` table holds durable facts
+  ("video beats images for this customer", "never discount") promoted from `LearningRecord`
+  (`strangeloop/learning/LearningRecordRepository`) after owner approval. Cap at ~30 active lessons
+  per customer; a monthly job proposes re-ranking/retiring old ones from the full
+  `cycle_context`/`ai_interactions` history (not from a summary-of-a-summary), owner reviews the
+  diff before it applies.
+- **Fixed prompt layer order**, enforced in `PromptRegistry`: identity block → long-term lessons →
+  last few cycles (today's `CycleMemoryService.boot`) → specific relevant past items (future
+  embedding search, see "Not doing now" below) → the task itself. State explicitly that earlier
+  layers win on conflict, so a busy week can never overwrite the customer's actual identity.
+- **Measure drift instead of guessing.** Before a draft reaches Approvals, a cheap-tier AI call
+  checks it against the identity block (tone, banned topics, unapproved claims) and flags
+  mismatches for the owner. Track each customer's rejection rate/reasons over time
+  (`AssetRepository`) and alert if it trends up.
+- **Pin and test model versions.** Models are already pinned per tier (`CMO2_AI_MODEL_*`,
+  `CMO2_AI_OPENAI_MODEL_*`); when the owner changes one, re-run a fixed set of test prompts per
+  customer and diff the output before switching everyone over.
+
 ### Not doing now (named)
 - Vector search over all past content (RAG). The compact block covers daily use; revisit if
   customers need years of history.
