@@ -176,7 +176,7 @@ public class Stage5Optimization implements LoopStage {
         List<String> ids = new ArrayList<>(List.of(""));
         ids.addAll(customValueIds);
         return JsonSchemas.object(Map.of("proposals", JsonSchemas.array(JsonSchemas.object(Map.of(
-                "hypothesis", JsonSchemas.string(300, "What you expect and why"),
+                "hypothesis", JsonSchemas.string(500, "What you expect and why (max 500 chars)"),
                 "action", JsonSchemas.enumOf(menu.stream().map(Enum::name).toList(), "One of the offered actions"),
                 "metric", JsonSchemas.enumOf(List.copyOf(metrics), "The metric this should move"),
                 "expectedDirection", JsonSchemas.enumOf(List.of("up", "down"), null),

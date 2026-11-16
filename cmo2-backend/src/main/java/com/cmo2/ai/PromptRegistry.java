@@ -92,7 +92,8 @@ public class PromptRegistry {
         String user = "DATA: this week against last week (computed by CMO²)\n" + figures
                 + "\n\nDATA: results of earlier experiments\n" + bullets(experimentResults)
                 + "\n\nSay what these figures suggest: a few observations, up to three testable hypotheses (each tied to one "
-                + "metric and the direction you expect it to move), and how confident you are overall (0 to 1).";
+                + "metric and the direction you expect it to move), and how confident you are overall (0 to 1). Keep each "
+                + "observation and each hypothesis statement concise (max 500 characters each).";
         return new AiRequest(system, user, AiModelTier.STRATEGY, "LEARNING", 4096);
     }
 
@@ -112,7 +113,8 @@ public class PromptRegistry {
                 + "\n\nDATA: results of earlier experiments\n" + bullets(experimentResults)
                 + "\n\nActions you may propose (use only these):\n" + menu
                 + "\n\nPropose at most two experiments, best first. Fill in only the fields your action uses and leave the "
-                + "others as empty strings. Propose nothing if no action would be a sensible test.";
+                + "others as empty strings. Keep each hypothesis short (max 500 characters). Propose nothing if no action "
+                + "would be a sensible test.";
         return new AiRequest(system, user, AiModelTier.STRATEGY, "OPTIMIZATION", 4096);
     }
 

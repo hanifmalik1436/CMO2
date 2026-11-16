@@ -1,18 +1,24 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from '@tanstack/react-query'
 import { GlassCard, PageHeader } from '../../components/ui/GlassCard'
 import { TrafficLight } from '../../components/ui/TrafficLight'
 import RequireRole from '../../app/guards/RequireRole'
 import { apiErrorMessage } from '../../lib/api'
 import { disconnectAgency, enableSubAccount, getAgencyStatus, getGhlMode, listLoopSchedules, listSubAccounts } from './customersApi'
+import { listCompanies } from '../companies/companiesApi'
 import { listApprovals } from '../assets/assetsApi'
 import { describeSchedule } from './CustomerLoopPanels'
 import { listDocTargets, provisionDocTargets } from '../settings/docsApi'
-import type { ApprovalItem, DocTargets, GhlAgencyStatus, GhlModeInfo, GhlSubAccount, LoopSchedule } from '../../lib/types'
+import type { ApprovalItem, Company, DocTargets, GhlAgencyStatus, GhlModeInfo, GhlSubAccount, LoopSchedule } from '../../lib/types'
 
 export default function CustomersPage() {
   const mode = useQuery<GhlModeInfo>({ queryKey: ['ghl', 'mode'], queryFn: getGhlMode })
+  const companies = useQuery<Company[]>({
+    queryKey: ['companies'],
+    queryFn: listCompanies,
+    enabled: mode.data?.agencyEnabled === false,
+  })
   const agencyEnabled = mode.data?.agencyEnabled ?? false
   const agency = useQuery<GhlAgencyStatus>({
     queryKey: ['ghl', 'agency'],
@@ -40,6 +46,26 @@ export default function CustomersPage() {
   }
 
   if (!mode.data.agencyEnabled) {
+    if (companies.isLoading) {
+      return (
+        <div>
+          <PageHeader title="Customers" subtitle="Loading your customer…" />
+          <GlassCard><p className="text-sm text-gray-400">Loading companies…</p></GlassCard>
+        </div>
+      )
+    }
+    if (companies.isError) {
+      return (
+        <div>
+          <PageHeader title="Customers" subtitle="Could not load customer list." />
+          <GlassCard><p className="text-sm text-red-300">{apiErrorMessage(companies.error, 'Could not load companies')}</p></GlassCard>
+        </div>
+      )
+    }
+    const active = (companies.data ?? []).filter((c) => c.status === 'ACTIVE')
+    if (active.length > 0) {
+      return <Navigate to={`/customers/${active[0].id}`} replace />
+    }
     return <SingleSubaccountModeCard />
   }
 

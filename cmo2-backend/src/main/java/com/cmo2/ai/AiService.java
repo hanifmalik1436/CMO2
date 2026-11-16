@@ -98,7 +98,11 @@ public class AiService {
             } catch (Exception e) {
                 problem = "not valid JSON";
             }
-            log.info("AI JSON answer for {} rejected (attempt {}): {}", request.kind(), attempt, problem);
+            if (attempt < JSON_ATTEMPTS) {
+                log.debug("AI JSON answer for {} rejected (attempt {}): {}", request.kind(), attempt, problem);
+            } else {
+                log.warn("AI JSON answer for {} rejected (attempt {}): {}", request.kind(), attempt, problem);
+            }
         }
         throw new ApiException(HttpStatus.BAD_GATEWAY, "The AI's answer didn't match the expected format: " + problem);
     }
