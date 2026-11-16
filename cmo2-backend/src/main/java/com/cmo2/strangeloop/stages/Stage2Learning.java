@@ -142,9 +142,9 @@ public class Stage2Learning implements LoopStage {
     static Map<String, Object> schema(List<Trend> week) {
         List<String> metrics = week.stream().map(Trend::metric).toList();
         return JsonSchemas.object(Map.of(
-                "observations", JsonSchemas.array(JsonSchemas.string(300, null), 5, "What the figures show, plainly"),
+                "observations", JsonSchemas.array(JsonSchemas.string(500, null), 5, "What the figures show, plainly (max 500 chars each)"),
                 "hypotheses", JsonSchemas.array(JsonSchemas.object(Map.of(
-                        "statement", JsonSchemas.string(300, "A testable explanation or idea"),
+                        "statement", JsonSchemas.string(500, "A testable explanation or idea (max 500 chars)"),
                         "metric", JsonSchemas.enumOf(metrics, "The metric it is about"),
                         "expectedDirection", JsonSchemas.enumOf(List.of("up", "down"), "Where that metric should move if it's right"),
                         "confidence", JsonSchemas.number(0, 1, null))), 3, null),

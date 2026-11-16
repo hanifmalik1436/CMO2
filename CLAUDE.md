@@ -1,259 +1,251 @@
-> **DEPRECATED (30 October 2026).** Superseded by `CLAUDE.md`. This describes the original
-> self-serve SaaS plan (public sign-up, Stripe billing, 15 connectors), which was replaced by the
-> owner-only GoHighLevel console. Kept for history only; don't follow it.
+# CLAUDE.md — CMO²
 
-# CLAUDE.md — CMO² Master Command Platform
-
-> Guidance for AI coding assistants (and human developers) working in this repo.
-> Read this file fully before writing or modifying any code.
+> Guidance for AI coding assistants and developers working in this repo. Read it fully before
+> writing or changing code. For what is built, what is unverified and what comes next, read
+> **`docs/PROJECT_STATE.md`**. The previous version of this file (the original SaaS plan) is
+> `deprecated-Claude.md`; don't follow it.
 
 ---
 
-## 1. What This Project Is
+## 1. What this project is
 
-CMO² ("Chief Marketing Officer, Squared") is a **multi-tenant SaaS marketing
-command center**. It gives agencies and multi-brand businesses one control panel
-to run, automate, and optimize marketing across 15+ external platforms.
+CMO² is the **agency owner's private console** between the owner's white-labelled
+GoHighLevel (GHL) agency and that agency's customers.
 
-Its signature feature is the **Strange Loop OS** — a 5-stage, self-improving
-automation cycle (Innovation → Learning → Documentation → Reporting →
-Optimization) that makes the platform act like an autonomous marketing engine.
+- **Customers never log in to CMO².** They only see their GHL sub-account.
+- **The owner (OWNER) and a partner (ADMIN) run everything.** CMO² lists the agency's
+  sub-accounts; each one the owner enables becomes a **Company** (a "customer").
+- For each customer, the **Strange Loop** runs on its own daily, weekly or monthly schedule:
+  1. **Innovation:** plan the cycle with AI, draft social posts.
+  2. **Learning:** read the week's figures, measure earlier experiments.
+  3. **Documentation:** write the cycle's record, which is the "Close".
+  4. **Reporting:** gaps.
+  5. **Optimization:** propose experiments.
+- The next cycle starts by loading that record plus the owner's edits in Notion, Confluence and
+  Linear (the "Boot").
+- **Nothing client-facing leaves CMO² without the owner's approval.**
 
-**Current reality:** the project is being rebuilt from a high-fidelity HTML/CSS/JS
-prototype (~20% complete — UI shell only, all data is mocked, no backend exists)
-into a production SaaS. **You are building the remaining 80%:** backend, database,
-auth, integrations, AI engine, and billing.
-
----
-
-## 2. The Tech Stack (and the one trap)
-
-| Layer | Choice | Version |
-|---|---|---|
-| Backend language | Java (LTS) | **17** |
-| Backend framework | Spring Boot | 3.3.x |
-| Security | Spring Security | 6.x |
-| ORM | Spring Data JPA / Hibernate | 6.x |
-| DB migrations | Flyway | latest |
-| Scheduling | Quartz (via Spring) | latest |
-| Rate limiting | Bucket4j (Redis-backed) | latest |
-| Real-time | Spring WebSocket (STOMP) | — |
-| Build tool | Maven | 3.9+ |
-| Frontend | React | **19** |
-| Frontend language | TypeScript | 5.x |
-| Frontend build | Vite | 5.x |
-| Styling | Tailwind CSS + shadcn/ui | latest |
-| Server state | TanStack Query | 5.x |
-| Client state | Zustand | 4.x |
-| Forms/validation | React Hook Form + Zod | latest |
-| Charts | Recharts | 2.x |
-| HTTP client | Axios | 1.x |
-| Database | MySQL | 8.0+ |
-| Cache/counters | Redis | 7.x |
-| Containers | Docker + Docker Compose | latest |
-
-> ⚠️ **TRAP:** Source requests sometimes say "React 20." **React 20 does not
-> exist.** Use **React 19** (current stable). Likewise the backend is **Java +
-> Spring Boot**, NOT Node.js — any older Node sketches are superseded.
+It is not a self-serve SaaS: there is no public sign-up (`CMO2_SELF_REGISTRATION=first-user-only`).
 
 ---
 
-## 3. Architecture: Modular Monolith
+## 2. Stack (as used in the code)
 
-One deployable Spring Boot app, split into **strictly bounded internal modules**.
-Boundaries are kept clean enough that any module can later become a microservice
-without a rewrite. Do **not** introduce microservices, a message broker, or a
-second deployable for v1.
+| Layer | Choice |
+|---|---|
+| Backend | Java 17, Spring Boot 3.3.5, Spring Security 6 (JWT), Spring Data JPA / Hibernate 6 |
+| Database | MySQL 8 with **Flyway** (`V1`–`V16`); tests run on **H2** |
+| Scheduling | **Quartz** (JDBC job store in MySQL, in-memory in tests); Spring `@Scheduled` for syncs and sweeps |
+| Real-time | Spring WebSocket / STOMP (loop progress) |
+| AI | Anthropic Java SDK 2.34 (Claude); OpenAI Chat Completions over `RestClient`; both behind `AiService` |
+| Other | Bucket4j rate limiting (**in-memory**), OpenPDF (reports), springdoc (Swagger), Lombok |
+| Frontend | React 19, TypeScript 5.9 (strict), Vite, Tailwind, TanStack Query 5, Axios, React Router, Recharts, Zustand (session only), React Hook Form + Zod, STOMP client |
 
-### Backend package layout (`com.cmo2`)
-```
-shared/         config, security, crypto, events, audit, exceptions  (shared kernel)
-auth/           login, register, MFA, refresh, password reset
-tenancy/        tenants, companies, onboarding wizard state machine
-billing/        StripeService, WebhookController, PlanLimitGuard
-integrations/   core (PlatformConnector iface) + one folder per platform + webhooks
-assets/         GenerationService, templates, Translator, Deployer, versioning
-studio/         Content Studio: sources → ideas → batches of per-format drafts (ContentBatchRunner)
-strategists/    AgentRegistry (17 agents), SessionService, ReviewGateService
-strangeloop/    orchestrator (LoopOrchestrator) + stages (Stage1..Stage5)
-analytics/      KpiIngestor, Aggregator, ReportGenerator (PDF)
-alerts/         RuleEngine + EmailChannel, SmsChannel, SlackChannel
-ai/             AiService (provider-agnostic), PromptRegistry, TokenAccountant, CostGuard
-```
-Structure is **package-by-feature**: each module owns its own
-`controller / service / repository / dto`. Do not create global "controllers" or
-"services" buckets.
-
-### Frontend layout (`cmo2-frontend/src`)
-```
-app/         AppShell, routes, guards (RequireAuth, RequireRole)
-features/    one folder per module, mirroring the backend modules
-components/ui/  shadcn primitives + GlassCard, StatBadge, TrafficLight
-lib/         api.ts (Axios + silent refresh), ws.ts (STOMP), queryClient.ts
-stores/      Zustand: session, selectedCompany, ui prefs
-```
-**Frontend folders mirror backend modules.** Keep them in sync.
+Present but **not used**: MapStruct (DTOs use static `of(...)` factories instead) and shadcn/ui (the only
+shared UI components are `GlassCard` and `TrafficLight`). Redis is configured but not required to run.
 
 ---
 
-## 4. 🔴 NON-NEGOTIABLE RULES
+## 3. Architecture: modular monolith, package by feature
 
-These cause critical bugs or security holes if broken. Treat them as hard
-constraints, not suggestions.
+One Spring Boot app. Each module owns its `controller / service / repository / domain / dto`.
+Don't add microservices, a message broker or global "services" folders.
 
-1. **TENANT ISOLATION IS SACRED.** Every tenant-owned table has a `tenant_id`
-   column. Never write a query, INSERT, or update that bypasses tenant scoping.
-   - `tenant_id` is set automatically from `TenantContext` (a ThreadLocal
-     populated from the JWT) via a Hibernate tenant filter and an entity
-     listener. **Never** accept `tenant_id` from client input.
-   - A CI **tenant-leak test suite** authenticates as Tenant A and tries to read
-     Tenant B's data on every endpoint. If you add an endpoint, it must pass.
-   - Tenant hierarchy: `Tenant → Users / Subscription / Companies → (per company)
-     Platform Connections, Assets, Strategist Sessions, Loop Iterations, KPI
-     Snapshots, Alerts, Reports`.
+### Backend modules (`cmo2-backend/src/main/java/com/cmo2/`)
 
-2. **SECURITY IS BUILT FIRST, NEVER BOLTED ON.** Auth, RBAC, and tenancy come
-   before features. New code inherits the existing security filter chain.
+| Module | Owns |
+|---|---|
+| `shared` | security (JWT, `TenantContext`), tenancy (`BaseTenantEntity`, filter, `TenantGuard`), crypto (`AesGcmService`), audit, exceptions (`GlobalExceptionHandler`), rate limit, mail, `TeamNotifier`, demo seeder |
+| `auth` | login, register (first user only), refresh, team/invites, roles |
+| `tenancy` | tenants, companies (customers), timezone |
+| `customers` | customer profile, GHL facts, **identity block** for every AI call |
+| `integrations` | `gohighlevel/` (`GhlGateway`, OAuth, agency, `GhlLocationReader`, `GhlSocialPlanner`, `GhlCustomValues`, `capability/`), sync, webhooks |
+| `analytics` | KPI snapshots, **daily rollups**, week-over-week trends, forecast / what-if |
+| `assets` | generation (EN + ES), **approvals**, publishing (`Deployer`), asset activity |
+| `strangeloop` | `orchestrator/` (runner, resume), `stages/` 1–5, `schedule/` (Quartz), `memory/` (Boot/Close, cycle records), `learning/`, `experiments/` |
+| `docs` | the owner's Notion / Confluence / Linear / Slack: clients, connections, per-customer targets, `DocumentationService`, `LinearTaskService` |
+| `ai` | `AiService`, `AiRouter`, providers, `PromptRegistry`, `JsonSchemas`, budgets, AI call log |
+| `alerts`, `reports` | KPI alert rules and PDF reports |
+| `strategists`, `billing` | **Legacy** from the original SaaS plan (17 strategist agents; Stripe billing for CMO² itself). Keep working; don't extend without a reason. |
 
-3. **AUTHORIZATION IS ENFORCED AT THE SERVICE LAYER** with method security
-   (`@PreAuthorize`). UI role checks are convenience only — never the real
-   boundary. Roles: `OWNER > ADMIN > STRATEGIST > ANALYST > VIEWER`.
-
-4. **SECRETS ARE ENCRYPTED.** Customer platform API keys use AES-256-GCM envelope
-   encryption (per-tenant data key wrapped by a master key). After save, the UI
-   only ever sees `••••last4`. App secrets live in env vars / Docker secrets —
-   **never** in code or the repo.
-
-5. **ALL INBOUND WEBHOOKS ARE HMAC-VERIFIED** (Stripe signing secret + platform
-   HMACs), persisted raw to `webhook_events`, then processed asynchronously.
-
-6. **SCHEMA CHANGES GO THROUGH FLYWAY ONLY** (`V1__init.sql`, `V2__assets.sql`…).
-   Never hand-edit the database or rely on `ddl-auto` in non-dev.
-
-7. **EVERY FEATURE MAPS TO A STRANGE LOOP STAGE (1–5).** If you can't answer
-   "which stage does this belong to?", reconsider the design.
-
-8. **AI HAS A BUDGET.** All AI calls route through the provider-agnostic
-   `AiService`, which meters tokens per tenant and enforces `CostGuard` ceilings
-   (circuit breakers). Never call an AI provider SDK directly from a module.
+### Frontend (`cmo2-frontend/src/`)
+`app/` (shell, routes, `RequireAuth`, `RequireRole`), `features/` (one folder per module:
+`customers`, `assets` incl. Approvals, `strangeLoop`, `integrations`, `settings`, …),
+`lib/` (`api.ts` with silent refresh, `types.ts`, `ws.ts`), `stores/session.ts`.
+Frontend features mirror backend modules.
 
 ---
 
-## 5. Key Patterns to Follow
+## 4. Non-negotiable rules
 
-- **Connector pattern (integrations):** one `PlatformConnector` interface, 15
-  implementations. GoHighLevel is the reference build; the other 14 replicate it.
-  ```java
-  public interface PlatformConnector {
-      Platform platform();
-      ConnectionHealth testConnection(EncryptedCredentials creds);
-      SyncResult pullData(SyncRequest request);   // contacts, campaigns, KPIs
-      DeployResult deployAsset(Asset asset);       // push generated content
-  }
-  ```
-- **Internal eventing:** modules are decoupled via Spring `ApplicationEvents`.
-  E.g. `AssetGeneratedEvent` triggers translation, documentation, deployment, and
-  Stage-2 learning — the generator doesn't know those listeners exist. Prefer
-  events over direct cross-module calls.
-- **Strange Loop orchestration:** `LoopOrchestrator.runCycle()` runs stages 1→5,
-  persists each transition to `loop_stage_runs` (so crashed cycles **resume**, not
-  restart), emits domain events → WebSocket progress bars, then reschedules via
-  Quartz.
-- **Real-time:** one authenticated STOMP-over-SockJS socket with topic streams
-  `/topic/tenant.{id}.loop`, `.activity`, `.alerts`. No polling.
-- **Frontend state:** server data in **TanStack Query**; minimal client state in
-  **Zustand**; forms via **React Hook Form + Zod**. Don't add Redux.
-- **MySQL hybrid:** relational columns for anything queried/filtered; JSON columns
-  (`content_json`, `insights_json`, `limits_json`) for flexible AI payloads.
+1. **Tenant isolation.** Every tenant-owned entity extends `BaseTenantEntity` (`tenant_id`
+   stamped from `TenantContext`). Never take `tenant_id` from a request.
+   - **Request paths:** load by id with `TenantGuard.owned(repo.findById(id))`. `findById` bypasses
+     the Hibernate filter.
+   - **Background threads** (loop stages, Quartz jobs, sync, event listeners) can't rely on the
+     filter: use repository methods that name the tenant (`findByTenantIdAnd…`) and pass `tenantId`
+     explicitly.
+   - Every new endpoint gets a test where another agency gets **404**.
+2. **Authorization at the service layer** with `@PreAuthorize` (roles `OWNER > ADMIN > STRATEGIST >
+   ANALYST > VIEWER`). Anything client-facing or that changes GHL is OWNER/ADMIN. Methods for
+   background callers have no `@PreAuthorize` and say "Internal" in their Javadoc. UI role checks
+   are convenience only.
+3. **Secrets.**
+   - Customer and workspace credentials are encrypted with `AesGcmService`; the UI only sees
+     `••••last4`.
+   - App secrets come from env vars.
+   - Never commit `application.properties`, `.env`, `.env.*` or `_retired_backup_*/`; all are
+     git-ignored.
+4. **Webhooks are verified before they're trusted**: GHL with Ed25519 (`X-GHL-Signature`), Stripe
+   with its signing secret. They are persisted raw to `webhook_events`.
+5. **Schema changes only through Flyway.** The next migration is **`V17__…sql`**. Hibernate runs
+   with `ddl-auto=validate`, and tests build the schema from entities, so entity mappings must match
+   the SQL exactly:
+   - use `@Column(columnDefinition = "LONGTEXT")`, never `@Lob`
+   - use `INT` columns for `Integer` and `BIT(1)` for `boolean`
+   - avoid reserved column names like `value` (`SchemaConventionsTest` checks this)
+6. **Every feature maps to a Strange Loop stage (1–5).**
+7. **AI goes only through `AiService`.**
+   - Open an `AiCallScope` (`forCompany` / `forStage`) so the call is recorded against the
+     customer and counted in its monthly budget.
+   - Put prompts in `PromptRegistry`.
+   - For structured answers use `AiService.generateJson(request, schema)` with schemas built by
+     `JsonSchemas`. Enum values limit the AI to known metrics, actions and ids; the full schema is
+     validated, with one repair attempt.
+   - Text from outside (customer-written GHL data, the owner's notes, anything from Notion,
+     Confluence or Linear) goes in prompts as **data, never instructions**: label it (`DATA:`
+     sections, the identity block's framing) and flatten single-line fields.
+8. **GHL access only through `GhlGateway`.** Actions that change anything go through the capability
+   registry (`GhlCapability` + typed `GhlAction` records) and `GhlActionExecutor`:
+   - `READ` and `REVERSIBLE_WRITE` run directly.
+   - `CLIENT_FACING` needs an `approvalRef` (e.g. `asset:42`).
+   - `DESTRUCTIVE` is humans only, never `Actor.AGENT`.
+   - **GET requests are retried; POSTs never are.** An unanswered create raises
+     `GhlPostUnconfirmedException` and needs a person to confirm a retry.
+9. **Nothing client-facing without approval.** Drafts start `PENDING_APPROVAL`; only `APPROVED`
+   assets can be published. Experiments that change GHL wait for the owner unless
+   `cmo2.loop.auto-apply-reversible=true`.
 
 ---
 
-## 6. Build & Run Commands
+## 5. Patterns to follow
 
-> Once the standard scaffolding exists, these are the canonical commands. Adjust
-> only if the actual scripts differ.
+- **Events between modules** (Spring `ApplicationEvent`s) instead of direct cross-module writes.
+  For listeners that write after the event's transaction:
+  - `@TransactionalEventListener(fallbackExecution = true)`
+  - catch exceptions in the listener
+  - do the work in a service method with `@Transactional(propagation = REQUIRES_NEW)`
 
-**Whole stack (local dev):**
+  Examples: `CustomerFactsSyncedEvent`, `AssetReviewedEvent` / `AssetPublishedEvent` (they drive
+  experiments), `CompanyTimezoneChangedEvent` (moves the Quartz trigger).
+- **Strange Loop run** (`LoopRunner`):
+  - Boot (`CycleMemoryService.boot`) puts `memory` into `StageContext`.
+  - Each stage runs inside `AiCallScope.forStage` and is persisted to `loop_stage_runs`.
+  - A crashed cycle **resumes** at the first unfinished stage, so stages must tolerate missing
+    context (e.g. Stage 4 fetches trends itself) and Close must not write twice.
+- **Schedules:** the `loop_triggers` row is the source of truth. `LoopScheduleService` keeps
+  Quartz in step at startup and on timezone change. `LoopCycleJob` binds the tenant, skips if a
+  cycle is still running.
+- **Integration code never throws into a cycle:** the docs clients and `GhlLocationReader`
+  degrade, and the record or health message names what failed.
+- **Figures:** KPIs are computed in Java (rollups, week-over-week). AI only reads compact
+  summaries.
+- **Frontend:**
+  - Server data with TanStack Query.
+  - Errors through `apiErrorMessage`.
+  - Every view handles loading, error and empty states.
+  - Role-gated parts use `RequireRole`.
+  - Forms use React Hook Form + Zod for new work (see `CustomerDetailPage`); older forms use
+    `useState`.
+  - No Redux.
+
+---
+
+## 6. Build, run, test
+
+There is **no Maven wrapper**: use `mvn`.
+
 ```bash
-docker compose up        # backend, frontend, mysql, redis, mailhog
-```
-
-**Backend (Maven):**
-```bash
+# Backend
 cd cmo2-backend
-./mvnw spring-boot:run                  # run app
-./mvnw test                             # unit + integration tests (Testcontainers spins real MySQL)
-./mvnw verify                           # full verify incl. tenant-leak suite + scans
-./mvnw flyway:migrate                   # apply DB migrations
-```
+mvn test                 # ~136 tests, H2 + in-memory Quartz, no MySQL or keys needed
+mvn spring-boot:run      # needs MySQL and application.properties (see below)
 
-**Frontend (Vite):**
-```bash
+# Frontend
 cd cmo2-frontend
 npm install
-npm run dev                             # dev server with hot reload
-npm run build                           # production build
-npm run test                            # Vitest + React Testing Library
-npm run test:e2e                        # Playwright smoke tests
-npm run lint
+npm run build            # tsc --noEmit + vite build — use this as the frontend check
+npm run dev              # http://localhost:5173
 ```
 
-**Docs:** OpenAPI/Swagger UI is auto-generated (springdoc) at `/swagger-ui.html`.
-Health probe at `/actuator/health`.
+- `cmo2-backend/src/main/resources/application.properties` is **git-ignored** (it holds local
+  defaults). A fresh clone needs one; every setting can also come from env vars listed in
+  `.env.example`.
+- No keys needed by default:
+  - `CMO2_AI_PROVIDER=stub` (demo AI)
+  - GHL demo mode for `demo-…` keys
+  - workspace tools simply not connected
+- Demo with seeded data: `DEMO_RUNBOOK.md` (Spring profile `demo`; never in production).
+- There are **no frontend tests yet**, and eslint isn't installed, so `npm run lint` fails.
+- Swagger: http://localhost:8080/swagger-ui.html.
 
 ---
 
-## 7. Build Order (Phases — strictly sequential)
+## 7. Testing conventions
 
-No phase starts until the previous phase's **exit criteria (tests, not opinions)**
-pass.
-
-| Phase | Theme | Headline deliverable |
-|---|---|---|
-| 0 | Foundation | Auth + app shells running; CI green |
-| 1 | Multi-tenancy + companies | Proven tenant isolation; onboarding wizard |
-| 2 | Strange Loop core | Live 5-stage cycle |
-| 3 | First integration (GoHighLevel) | Real data on dashboard, auto-syncing |
-| 4 | AI asset generation | Generate → translate (EN→ES) → deploy |
-| 5 | AI Strategists | 17 agents + review gates RG-1..RG-4 |
-| 6 | Analytics, alerts, auto-docs | Anomaly → alert within 5 min; PDF reports |
-| 7 | SaaS hardening & billing | Stranger can sign up & pay (the "sellable" gate) |
-| 8 | Expansion & advanced AI | Connectors 2–15, predictive AI, What-If sim |
-
----
-
-## 8. Definition of Done (every feature)
-
-A feature is done **only when all of these hold**:
-1. Backend endpoint(s) + service logic implemented **with validation**.
-2. Tenant isolation verified by the leak suite.
-3. Unit + integration tests passing in CI.
-4. Frontend UI wired with **loading / error / empty** states.
-5. Audit/activity events emitted.
-6. Mapped to its Strange Loop stage.
-7. Documented (auto-doc where applicable).
+- **Flow tests:**
+  - `@SpringBootTest @AutoConfigureMockMvc @ActiveProfiles("test")`
+  - register a fresh agency per test through `/api/auth/register` (unique emails)
+  - activate the plan with `/api/billing/simulate-activation`
+  - drive the real API
+- **Mocking:** mock only the outside world (`NotionClient`, `LinearClient`, `GhlSocialPlanner`,
+  AI providers…) with `@MockBean`. HTTP clients are unit-tested with `MockRestServiceServer`; the
+  Anthropic SDK against a local `HttpServer`.
+- **Async loop:** wait for cycles with Awaitility (`await().atMost(...)`).
+- **Required per feature:** a tenant-isolation check (other agency → 404) and a role check
+  (lower role → `AccessDeniedException`).
+- **Odd failures** (duplicate classes, wrong config): run `mvn clean test`. Stale `target/`
+  contents have caused false failures.
 
 ---
 
-## 9. Conventions Cheat-Sheet
+## 8. Definition of done
 
-- **Java:** package-by-feature; use records/sealed classes where they simplify;
-  Lombok for boilerplate; MapStruct for entity↔DTO; Bean Validation on all
-  request DTOs.
-- **TypeScript:** strict mode; types/zod schemas mirror backend validation.
-- **Naming:** backend modules and frontend `features/` folders share names.
-- **Never** disable tenant filtering, security headers, or HMAC checks "just to
-  test" — use proper test fixtures instead.
-- **Errors:** backend uses a single `GlobalExceptionHandler` (`@ControllerAdvice`);
-  frontend surfaces friendly messages, never raw stack traces.
+1. Endpoint(s) and service logic with Bean Validation on request DTOs.
+2. Tenant isolation and role checks covered by tests.
+3. `mvn test` green and `npm run build` green.
+4. UI with loading / error / empty states.
+5. Audit events (`AuditService.record`) for decisions and changes.
+6. Mapped to a Strange Loop stage.
+7. `docs/PROJECT_STATE.md` updated if it changes what's built, unverified or next.
 
 ---
 
-## 10. External Services (reference)
+## 9. Gotchas
 
-AI: Anthropic Claude (strategy/reasoning), OpenAI (bulk/translation tier) — both
-behind `AiService`. Billing: Stripe (hosted Checkout/Portal — no card data on our
-servers). Email: SendGrid/SES. SMS: Twilio. Alerts: Slack incoming webhooks.
-Auto-docs: Notion / Confluence / Linear. Connectors: GoHighLevel (first),
-then ReachInbox, LinkedIn, Meta, Google Ads, ManyChat, Nureply, Sendr, Leadpro,
-SlyBroadcast, TikTok, Stripe(data), PayPal.
+- **Don't put the repo in iCloud Drive** (Desktop or Documents sync). It created "… 2"
+  duplicates, restored deleted files and rolled back source files in the old copy.
+- **Constructors:** a Spring bean with two constructors needs `@Autowired` on the one Spring
+  should use. The package-private ones exist for tests.
+- **Records:** compact canonical constructors validate; keep old arities as extra constructors
+  when adding fields (see `AiRequest`, `SyncResult`, `SyncRequest`).
+- **Pinned external versions:**
+  - Notion API is pinned to `2022-06-28` (database model).
+  - GHL `Version` headers are chosen per path in `GhlGateway.versionFor`.
+  - Claude defaults: `claude-opus-5-5` (strategy, generation), `claude-haiku-5-5` (translation).
+  - OpenAI defaults: `gpt-5`, `gpt-5-mini`.
+- **TypeScript 6 in the editor** flags `baseUrl` as deprecated, so it was removed from
+  `tsconfig.json`; keep `paths` relative (`./src/*`).
+- `gohighlevel-cli/` is a **reference only** (private-use licence): don't copy its code.
+- `_retired_backup_2026-10-27/` holds code removed in the GHL-only redesign. Don't import from it.
+
+---
+
+## 10. External services
+
+| Service | Use |
+|---|---|
+| GoHighLevel | Agency OAuth app (Agency Pro), sub-account figures, Social Planner posts, custom values. Email waits on `docs/spikes/2026-10-28-ghl-email-spike.md`. |
+| AI | Anthropic Claude (strategy and planning), OpenAI (drafts and translation), routed by `AiRouter`, overridable per tier (`CMO2_AI_ROUTE_*`). |
+| Owner's workspace tools | Notion, Confluence, Linear, Slack: the owner's own accounts, connected in Settings → Workspace tools. |
+| Legacy | Stripe (billing for CMO² itself) and SMTP mail (invites, alerts). |
