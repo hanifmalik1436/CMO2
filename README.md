@@ -187,6 +187,11 @@ introduced by later phases (see `03_HIGH_LEVEL_PLAN.md`); list provided so you c
 > When a phase needs one of these, its key is supplied via **environment variables / Docker
 > secrets** — never committed to the repo (see *Security notes*).
 
+Workspace tools are connected once at the tenant/agency level (owner-facing). CMO² provisions
+separate Notion/Confluence/Linear targets per Company and records per-tool sharing status for the
+company owner email from that customer's profile. Slack uses incoming webhooks, so CMO² posts
+share guidance but cannot auto-invite users by email.
+
 ## Run it locally
 
 You have two paths. **Path A (Docker)** needs nothing but Docker installed. **Path B

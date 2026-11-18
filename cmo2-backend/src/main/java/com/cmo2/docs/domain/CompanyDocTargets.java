@@ -39,4 +39,52 @@ public class CompanyDocTargets extends BaseTenantEntity {
 
     @Column(name = "last_error", length = 1000)
     private String lastError;
+
+    @Column(name = "notion_share_status", length = 24)
+    private String notionShareStatus;
+
+    @Column(name = "notion_share_message", length = 1000)
+    private String notionShareMessage;
+
+    @Column(name = "notion_shared_email", length = 160)
+    private String notionSharedEmail;
+
+    @Column(name = "notion_share_attempted_at")
+    private java.time.Instant notionShareAttemptedAt;
+
+    @Column(name = "confluence_share_status", length = 24)
+    private String confluenceShareStatus;
+
+    @Column(name = "confluence_share_message", length = 1000)
+    private String confluenceShareMessage;
+
+    @Column(name = "confluence_shared_email", length = 160)
+    private String confluenceSharedEmail;
+
+    @Column(name = "confluence_share_attempted_at")
+    private java.time.Instant confluenceShareAttemptedAt;
+
+    @Column(name = "linear_share_status", length = 24)
+    private String linearShareStatus;
+
+    @Column(name = "linear_share_message", length = 1000)
+    private String linearShareMessage;
+
+    @Column(name = "linear_shared_email", length = 160)
+    private String linearSharedEmail;
+
+    @Column(name = "linear_share_attempted_at")
+    private java.time.Instant linearShareAttemptedAt;
+
+    @Column(name = "slack_share_status", length = 24)
+    private String slackShareStatus;
+
+    @Column(name = "slack_share_message", length = 1000)
+    private String slackShareMessage;
+
+    @Column(name = "slack_shared_email", length = 160)
+    private String slackSharedEmail;
+
+    @Column(name = "slack_share_attempted_at")
+    private java.time.Instant slackShareAttemptedAt;
 }

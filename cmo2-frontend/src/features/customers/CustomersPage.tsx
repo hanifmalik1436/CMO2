@@ -9,7 +9,7 @@ import { disconnectAgency, enableSubAccount, getAgencyStatus, getGhlMode, listLo
 import { listCompanies } from '../companies/companiesApi'
 import { listApprovals } from '../assets/assetsApi'
 import { describeSchedule } from './CustomerLoopPanels'
-import { listDocTargets, provisionDocTargets } from '../settings/docsApi'
+import { listDocTargets, provisionDocTargets, retryDocSharing } from '../settings/docsApi'
 import type { ApprovalItem, Company, DocTargets, GhlAgencyStatus, GhlModeInfo, GhlSubAccount, LoopSchedule } from '../../lib/types'
 
 export default function CustomersPage() {
@@ -272,6 +272,11 @@ function SubAccountRow({ sub, targets, schedule, waiting }: {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['docs', 'targets'] }),
     onError: (err) => setError(apiErrorMessage(err, 'Could not set up workspace pages')),
   })
+  const retryShare = useMutation({
+    mutationFn: () => retryDocSharing(sub.companyId as number),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['docs', 'targets'] }),
+    onError: (err) => setError(apiErrorMessage(err, 'Could not retry sharing')),
+  })
   const links = [
     { label: 'Notion', url: targets?.notionUrl, id: targets?.notionPageId },
     { label: 'Confluence', url: targets?.confluenceUrl, id: targets?.confluencePageId },
@@ -333,6 +338,10 @@ function SubAccountRow({ sub, targets, schedule, waiting }: {
               ),
             )}
             {targets?.lastError && <div className="max-w-xs text-red-300">{targets.lastError}</div>}
+            {renderShareState('Notion', targets?.notionShare)}
+            {renderShareState('Confluence', targets?.confluenceShare)}
+            {renderShareState('Linear', targets?.linearShare)}
+            {renderShareState('Slack', targets?.slackShare)}
             <button
               className="text-gray-400 underline hover:text-gray-200"
               onClick={() => { setError(null); provision.mutate() }}
@@ -340,6 +349,15 @@ function SubAccountRow({ sub, targets, schedule, waiting }: {
             >
               {provision.isPending ? 'Setting up…' : links.length ? 'Set up missing pages' : 'Set up pages'}
             </button>
+            <RequireRole allow={['OWNER']}>
+              <button
+                className="text-gray-400 underline hover:text-gray-200"
+                onClick={() => { setError(null); retryShare.mutate() }}
+                disabled={retryShare.isPending}
+              >
+                {retryShare.isPending ? 'Retrying…' : 'Retry sharing'}
+              </button>
+            </RequireRole>
           </div>
         )}
       </td>
@@ -352,5 +370,27 @@ function SubAccountRow({ sub, targets, schedule, waiting }: {
         {error && <div className="mt-2 max-w-xs text-left text-xs text-red-300">{error}</div>}
       </td>
     </tr>
+  )
+}
+
+function renderShareState(
+  label: string,
+  state?: { status: string | null; message: string | null; sharedEmail: string | null } | null,
+) {
+  if (!state || !state.status) return null
+  const tone =
+    state.status === 'SHARED'
+      ? 'text-emerald-300'
+      : state.status === 'FAILED'
+        ? 'text-red-300'
+        : state.status === 'WARNING'
+          ? 'text-amber-300'
+          : 'text-gray-400'
+  const text = state.sharedEmail ? `${state.status.toLowerCase()} (${state.sharedEmail})` : state.status.toLowerCase()
+  return (
+    <div key={label} className={`max-w-xs ${tone}`}>
+      {label}: {text}
+      {state.message ? ` — ${state.message}` : ''}
+    </div>
   )
 }

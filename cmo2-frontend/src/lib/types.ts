@@ -523,6 +523,17 @@ export interface DocTargets {
   linearProjectId: string | null
   linearUrl: string | null
   lastError: string | null
+  notionShare: DocShareState | null
+  confluenceShare: DocShareState | null
+  linearShare: DocShareState | null
+  slackShare: DocShareState | null
+}
+
+export interface DocShareState {
+  status: 'SHARED' | 'WARNING' | 'FAILED' | 'SKIPPED' | null
+  message: string | null
+  sharedEmail: string | null
+  attemptedAt: string | null
 }
 
 /** A customer's profile: the owner's notes plus the details GHL reports about the business. */

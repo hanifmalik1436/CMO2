@@ -9,6 +9,7 @@ import com.cmo2.docs.client.NotionClient;
 import com.cmo2.docs.client.NotionClient.NotionPage;
 import com.cmo2.docs.domain.CompanyDocTargets;
 import com.cmo2.docs.domain.DocProvider;
+import com.cmo2.docs.dto.DocsDtos.ShareState;
 import com.cmo2.docs.dto.DocsDtos.DocTargetsResponse;
 import com.cmo2.docs.dto.DocsDtos.UpdateDocTargetsRequest;
 import com.cmo2.docs.repository.CompanyDocTargetsRepository;
@@ -46,10 +47,11 @@ public class DocTargetService {
     private final ConfluenceClient confluence;
     private final LinearClient linear;
     private final AuditService audit;
+    private final DocSharingService sharing;
 
     public DocTargetService(CompanyDocTargetsRepository repo, DocConnectionService connections,
                             CompanyRepository companies, NotionClient notion, ConfluenceClient confluence,
-                            LinearClient linear, AuditService audit) {
+                            LinearClient linear, AuditService audit, DocSharingService sharing) {
         this.repo = repo;
         this.connections = connections;
         this.companies = companies;
@@ -57,6 +59,7 @@ public class DocTargetService {
         this.confluence = confluence;
         this.linear = linear;
         this.audit = audit;
+        this.sharing = sharing;
     }
 
     // ---- owner-facing ------------------------------------------------------------------
@@ -68,11 +71,24 @@ public class DocTargetService {
     }
 
     @Transactional
-    @PreAuthorize("hasAnyRole('OWNER','ADMIN')")
+    @PreAuthorize("hasRole('OWNER')")
     public DocTargetsResponse provisionForCompany(Long companyId) {
         Long tenantId = TenantContext.requireTenantId();
         Company company = ownedCompany(tenantId, companyId);
         return toResponse(provision(tenantId, company.getId(), company.getName()));
+    }
+
+    @Transactional
+    @PreAuthorize("hasRole('OWNER')")
+    public DocTargetsResponse retrySharing(Long companyId) {
+        Long tenantId = TenantContext.requireTenantId();
+        Company company = ownedCompany(tenantId, companyId);
+        CompanyDocTargets targets = repo.findByTenantIdAndCompanyId(tenantId, companyId)
+                .orElseThrow(() -> ApiException.notFound("No workspace targets exist for this company yet"));
+        sharing.applyShareOutcomes(tenantId, companyId, company.getName(), targets);
+        targets = repo.save(targets);
+        audit.record("DOC_TARGETS_SHARE_RETRIED", "Company", String.valueOf(companyId), company.getName());
+        return toResponse(targets);
     }
 
     @Transactional
@@ -163,6 +179,7 @@ public class DocTargetService {
 
         String error = errors.isEmpty() ? null : String.join(" | ", errors);
         t.setLastError(error == null || error.length() <= 1000 ? error : error.substring(0, 1000));
+        sharing.applyShareOutcomes(tenantId, companyId, companyName, t);
         if (error != null) {
             log.warn("Workspace setup for company {} was incomplete: {}", companyId, error);
         }
@@ -193,6 +210,14 @@ public class DocTargetService {
     static DocTargetsResponse toResponse(CompanyDocTargets t) {
         if (t == null) return null;
         return new DocTargetsResponse(t.getCompanyId(), t.getNotionPageId(), t.getNotionUrl(),
-                t.getConfluencePageId(), t.getConfluenceUrl(), t.getLinearProjectId(), t.getLinearUrl(), t.getLastError());
+                t.getConfluencePageId(), t.getConfluenceUrl(), t.getLinearProjectId(), t.getLinearUrl(), t.getLastError(),
+                new ShareState(t.getNotionShareStatus(), t.getNotionShareMessage(),
+                        t.getNotionSharedEmail(), t.getNotionShareAttemptedAt()),
+                new ShareState(t.getConfluenceShareStatus(), t.getConfluenceShareMessage(),
+                        t.getConfluenceSharedEmail(), t.getConfluenceShareAttemptedAt()),
+                new ShareState(t.getLinearShareStatus(), t.getLinearShareMessage(),
+                        t.getLinearSharedEmail(), t.getLinearShareAttemptedAt()),
+                new ShareState(t.getSlackShareStatus(), t.getSlackShareMessage(),
+                        t.getSlackSharedEmail(), t.getSlackShareAttemptedAt()));
     }
 }

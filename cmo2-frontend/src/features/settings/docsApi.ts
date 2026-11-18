@@ -24,3 +24,7 @@ export async function listDocTargets(): Promise<DocTargets[]> {
 export async function provisionDocTargets(companyId: number): Promise<DocTargets> {
   return (await api.post<DocTargets>(`/api/companies/${companyId}/doc-targets/provision`)).data
 }
+
+export async function retryDocSharing(companyId: number): Promise<DocTargets> {
+  return (await api.post<DocTargets>(`/api/companies/${companyId}/doc-targets/share/retry`)).data
+}
