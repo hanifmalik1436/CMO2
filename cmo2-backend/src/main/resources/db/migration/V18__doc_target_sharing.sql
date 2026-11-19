@@ -1,0 +1,17 @@
+ALTER TABLE company_doc_targets
+    ADD COLUMN notion_share_status VARCHAR(24) NULL AFTER last_error,
+    ADD COLUMN notion_share_message VARCHAR(1000) NULL AFTER notion_share_status,
+    ADD COLUMN notion_shared_email VARCHAR(160) NULL AFTER notion_share_message,
+    ADD COLUMN notion_share_attempted_at DATETIME NULL AFTER notion_shared_email,
+    ADD COLUMN confluence_share_status VARCHAR(24) NULL AFTER notion_share_attempted_at,
+    ADD COLUMN confluence_share_message VARCHAR(1000) NULL AFTER confluence_share_status,
+    ADD COLUMN confluence_shared_email VARCHAR(160) NULL AFTER confluence_share_message,
+    ADD COLUMN confluence_share_attempted_at DATETIME NULL AFTER confluence_shared_email,
+    ADD COLUMN linear_share_status VARCHAR(24) NULL AFTER confluence_share_attempted_at,
+    ADD COLUMN linear_share_message VARCHAR(1000) NULL AFTER linear_share_status,
+    ADD COLUMN linear_shared_email VARCHAR(160) NULL AFTER linear_share_message,
+    ADD COLUMN linear_share_attempted_at DATETIME NULL AFTER linear_shared_email,
+    ADD COLUMN slack_share_status VARCHAR(24) NULL AFTER linear_share_attempted_at,
+    ADD COLUMN slack_share_message VARCHAR(1000) NULL AFTER slack_share_status,
+    ADD COLUMN slack_shared_email VARCHAR(160) NULL AFTER slack_share_message,
+    ADD COLUMN slack_share_attempted_at DATETIME NULL AFTER slack_shared_email;

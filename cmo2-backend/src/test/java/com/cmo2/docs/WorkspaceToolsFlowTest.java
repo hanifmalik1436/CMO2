@@ -167,6 +167,10 @@ class WorkspaceToolsFlowTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.notionPageId").isNotEmpty())
                 .andExpect(jsonPath("$.linearProjectId").isNotEmpty())
+                .andExpect(jsonPath("$.notionShare.status").value("WARNING"))
+                .andExpect(jsonPath("$.confluenceShare.status").value("WARNING"))
+                .andExpect(jsonPath("$.linearShare.status").value("WARNING"))
+                .andExpect(jsonPath("$.slackShare.status").value("WARNING"))
                 .andReturn();
         MvcResult b = mvc.perform(post("/api/companies/" + beta + "/doc-targets/provision").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk()).andReturn();
@@ -262,6 +266,8 @@ class WorkspaceToolsFlowTest {
                 .andExpect(status().isNotFound());
         long companyA = createCompany(tokenA, "Epsilon " + UUID.randomUUID().toString().substring(0, 6));
         mvc.perform(post("/api/companies/" + companyA + "/doc-targets/provision").header("Authorization", "Bearer " + tokenB))
+                .andExpect(status().isNotFound());
+        mvc.perform(post("/api/companies/" + companyA + "/doc-targets/share/retry").header("Authorization", "Bearer " + tokenB))
                 .andExpect(status().isNotFound());
     }
 }

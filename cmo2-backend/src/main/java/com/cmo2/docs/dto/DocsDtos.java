@@ -44,7 +44,18 @@ public final class DocsDtos {
             String confluenceUrl,
             String linearProjectId,
             String linearUrl,
-            String lastError
+            String lastError,
+            ShareState notionShare,
+            ShareState confluenceShare,
+            ShareState linearShare,
+            ShareState slackShare
+    ) {}
+
+    public record ShareState(
+            String status,
+            String message,
+            String sharedEmail,
+            Instant attemptedAt
     ) {}
 
     /** Point a customer at existing pages/projects instead of the ones CMO² created. Blank clears. */

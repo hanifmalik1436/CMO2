@@ -74,6 +74,12 @@ public class DocsController {
         return targets.provisionForCompany(companyId);
     }
 
+    @PostMapping("/companies/{companyId}/doc-targets/share/retry")
+    @Operation(summary = "Retry sharing this customer's workspace targets with its owner email")
+    public DocTargetsResponse retrySharing(@PathVariable Long companyId) {
+        return targets.retrySharing(companyId);
+    }
+
     @PutMapping("/companies/{companyId}/doc-targets")
     @Operation(summary = "Point a customer at existing pages/projects")
     public DocTargetsResponse update(@PathVariable Long companyId, @Valid @RequestBody UpdateDocTargetsRequest request) {
