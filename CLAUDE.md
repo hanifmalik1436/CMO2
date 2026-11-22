@@ -34,7 +34,7 @@ It is not a self-serve SaaS: there is no public sign-up (`CMO2_SELF_REGISTRATION
 | Layer | Choice |
 |---|---|
 | Backend | Java 17, Spring Boot 3.3.5, Spring Security 6 (JWT), Spring Data JPA / Hibernate 6 |
-| Database | MySQL 8 with **Flyway** (`V1`–`V16`); tests run on **H2** |
+| Database | MySQL 8 with **Flyway** (`V1`–`V19`); tests run on **H2** |
 | Scheduling | **Quartz** (JDBC job store in MySQL, in-memory in tests); Spring `@Scheduled` for syncs and sweeps |
 | Real-time | Spring WebSocket / STOMP (loop progress) |
 | AI | Anthropic Java SDK 2.34 (Claude); OpenAI Chat Completions over `RestClient`; both behind `AiService` |
@@ -58,7 +58,7 @@ Don't add microservices, a message broker or global "services" folders.
 | `shared` | security (JWT, `TenantContext`), tenancy (`BaseTenantEntity`, filter, `TenantGuard`), crypto (`AesGcmService`), audit, exceptions (`GlobalExceptionHandler`), rate limit, mail, `TeamNotifier`, demo seeder |
 | `auth` | login, register (first user only), refresh, team/invites, roles |
 | `tenancy` | tenants, companies (customers), timezone |
-| `customers` | customer profile, GHL facts, **identity block** for every AI call |
+| `customers` | customer profile, GHL facts, versioned **brand canon** (owner-approved), **identity block** for every AI call |
 | `integrations` | `gohighlevel/` (`GhlGateway`, OAuth, agency, `GhlLocationReader`, `GhlSocialPlanner`, `GhlCustomValues`, `capability/`), sync, webhooks |
 | `analytics` | KPI snapshots, **daily rollups**, week-over-week trends, forecast / what-if |
 | `assets` | generation (EN + ES), **approvals**, publishing (`Deployer`), asset activity |
@@ -98,7 +98,7 @@ Frontend features mirror backend modules.
      git-ignored.
 4. **Webhooks are verified before they're trusted**: GHL with Ed25519 (`X-GHL-Signature`), Stripe
    with its signing secret. They are persisted raw to `webhook_events`.
-5. **Schema changes only through Flyway.** The next migration is **`V17__…sql`**. Hibernate runs
+5. **Schema changes only through Flyway.** The next migration is **`V20__…sql`**. Hibernate runs
    with `ddl-auto=validate`, and tests build the schema from entities, so entity mappings must match
    the SQL exactly:
    - use `@Column(columnDefinition = "LONGTEXT")`, never `@Lob`
@@ -109,6 +109,11 @@ Frontend features mirror backend modules.
    - Open an `AiCallScope` (`forCompany` / `forStage`) so the call is recorded against the
      customer and counted in its monthly budget.
    - Put prompts in `PromptRegistry`.
+   - The customer's identity block (profile facts + approved canon) goes in the request's
+     `context` (`AiRequest.withContext`), never concatenated into the system prompt. Providers put
+     it first and mark it for prompt caching, so it must hold nothing that changes per call:
+     figures, memory, dates and per-task text go in the user prompt (`figuresBlock` is separate
+     for this reason).
    - For structured answers use `AiService.generateJson(request, schema)` with schemas built by
      `JsonSchemas`. Enum values limit the AI to known metrics, actions and ids; the full schema is
      validated, with one repair attempt.

@@ -1,7 +1,7 @@
 import { api } from '../../lib/api'
 import type {
-  AiInteraction, CustomerProfile, CustomerProfileInput, CycleRecord, Experiment, GhlAgencyStatus, GhlModeInfo, GhlSubAccount,
-  KpiTrend, LearningRecord, LoopSchedule, LoopScheduleInput,
+  AiInteraction, CustomerCanon, CustomerProfile, CustomerProfileInput, CycleRecord, Experiment, GhlAgencyStatus, GhlModeInfo,
+  GhlSubAccount, IdentityPreview, KpiTrend, LearningRecord, LoopSchedule, LoopScheduleInput,
 } from '../../lib/types'
 
 export async function getGhlMode(): Promise<GhlModeInfo> {
@@ -36,8 +36,24 @@ export async function updateCustomerProfile(companyId: number, input: CustomerPr
   return (await api.put<CustomerProfile>(`/api/companies/${companyId}/profile`, input)).data
 }
 
-export async function getIdentityBlock(companyId: number): Promise<string> {
-  return (await api.get<{ companyId: number; text: string }>(`/api/companies/${companyId}/identity`)).data.text
+export async function getIdentityBlock(companyId: number): Promise<IdentityPreview> {
+  return (await api.get<IdentityPreview>(`/api/companies/${companyId}/identity`)).data
+}
+
+export async function getCanon(companyId: number): Promise<CustomerCanon> {
+  return (await api.get<CustomerCanon>(`/api/companies/${companyId}/canon`)).data
+}
+
+export async function saveCanonDraft(companyId: number, content: string, changeNote?: string): Promise<CustomerCanon> {
+  return (await api.put<CustomerCanon>(`/api/companies/${companyId}/canon/draft`, { content, changeNote })).data
+}
+
+export async function approveCanonDraft(companyId: number): Promise<CustomerCanon> {
+  return (await api.post<CustomerCanon>(`/api/companies/${companyId}/canon/draft/approve`)).data
+}
+
+export async function discardCanonDraft(companyId: number): Promise<CustomerCanon> {
+  return (await api.delete<CustomerCanon>(`/api/companies/${companyId}/canon/draft`)).data
 }
 
 export async function getWeekTrends(companyId: number): Promise<KpiTrend[]> {

@@ -69,18 +69,20 @@ All phases are implemented and covered by tests (136 backend tests, all passing 
 | 5 | Per-customer schedules in **Quartz** (MySQL, survive restarts), AI call log, per-customer AI budget, **Boot** (load memory + owner's notes) and **Close** (write the cycle record) | `strangeloop/schedule/`, `strangeloop/memory/`, `ai/` |
 | 6 | Claude + OpenAI side by side with per-task routing, structured JSON output (`AiService.generateJson`), Stage 1 plans with AI and drafts posts | `ai/`, `strangeloop/stages/Stage1Innovation` |
 | 7 | Stage 2 learning records, Stage 4 gaps, Stage 5 experiments (propose → owner decides → measured in a later cycle) | `strangeloop/learning/`, `strangeloop/experiments/`, stages 2/4/5 |
+| + | **Brand canon + cached customer context** (19 Nov 2026, drift-control plan step 1): a versioned canon per customer (staff draft, owner/admin approve, history kept); only the approved version reaches the AI, in full, as the first, cached system block of every call. Weekly figures moved out of the identity block into the cycle plan's request. AI call log and budgets count prompt-cache reads (at a tenth) and writes | `customers/service/CustomerCanonService`, `customers/service/CustomerIdentityService`, `ai/AiMessages`, `ai/provider/` |
 | + | **Content Studio** (30 Oct 2026): paste a transcript/notes/article → AI finds ideas (hooks, quote) → pick ideas and formats (15 formats across X, LinkedIn, YouTube, TikTok, Threads, Instagram, Facebook, Google Business, website, Substack) → each format's own agent writes the drafts in the background → all land in Approvals. GHL-supported post formats publish through Social Planner; the rest (threads, carousels, scripts, articles, newsletters) are copy & paste. Max 40 pieces per batch; stops cleanly when the AI budget runs out. With no AI key, demo drafts are built from the real source text | `studio/`, `assets/domain/ContentFormat`, `ai/provider/StubContentWriter` |
 
 **Owner screens (frontend):** Customers, the customer page (`/customers/:id`: schedule, last 7
-days, learning & experiments, cycle memory, profile, "what the AI is told", AI calls), Approvals,
+days, learning & experiments, cycle memory, brand canon, profile, "what the AI is told", AI calls), Approvals,
 Content Studio, Strange Loop, Integrations, Settings → Workspace tools.
 
 **Older modules still present** (from the original SaaS plan, not part of the owner's story):
 AI Strategists (17 agents), Companies page, Billing (CMO²'s own plan), Analytics forecast /
 what-if, Alerts, Reports.
 
-**Database:** Flyway migrations `V1`–`V17` in `cmo2-backend/src/main/resources/db/migration/`
-(`V14` is Quartz's own schema; `V17` is the Content Studio). The next migration is `V18`.
+**Database:** Flyway migrations `V1`–`V19` in `cmo2-backend/src/main/resources/db/migration/`
+(`V14` is Quartz's own schema; `V17` is the Content Studio; `V19` is the brand canon and
+cache-token columns). The next migration is `V20`.
 
 ---
 
@@ -123,7 +125,7 @@ Every external call has been tested only against mocked responses.
 |---|---|
 | **GHL Marketplace app + a sandbox sub-account** | Agency install and listing sub-accounts; real figures (revenue units, appointment counting, opportunity search); the first real social post (GHL docs disagree on the `Version` header for Social Planner); listing and changing custom values |
 | **The email spike** | Whether GHL's public Campaign V2 API can create and schedule emails. Plan and decision rule: `docs/spikes/2026-10-28-ghl-email-spike.md`. No email-sending code until it's answered. |
-| **Claude and OpenAI keys** | One live cycle. Check the Claude refusal-fallback setting is accepted (turn off with `CMO2_AI_ANTHROPIC_REFUSAL_FALLBACK=false` if not), and that `gpt-5` / `gpt-5-mini` are valid on your OpenAI account. |
+| **Claude and OpenAI keys** | One live cycle. Check the Claude refusal-fallback setting is accepted (turn off with `CMO2_AI_ANTHROPIC_REFUSAL_FALLBACK=false` if not), and that `gpt-5` / `gpt-5-mini` are valid on your OpenAI account. Run one Content Studio batch for a customer with an approved canon: from the second draft on, the AI calls list should show cached tokens (a context below the model's minimum cacheable length is simply not cached). |
 | **Your Notion / Confluence / Linear** | One cycle that writes pages and issues, then a second that reads your edits back. |
 | **GHL app scopes** | Enable the list in `.env.example` (includes `users.readonly` and `calendars.readonly`). |
 
@@ -154,6 +156,12 @@ Every external call has been tested only against mocked responses.
    - update the Dashboard's "Getting started" text
    - friendlier Customers page when no GHL app is configured
 8. **Install eslint** so `npm run lint` works, then add the first frontend tests.
+9. **Plans saved for later** (in `docs/plans/`):
+   - `2026-11-19-drift-control-canon-lanes-graph.md`: step 1 done; next are lanes, the drift
+     check, the graph view and (later) vector search.
+   - `2026-11-04-per-customer-ai-memory.md`: memory block for every AI task, throughput at
+     1,000 customers, isolation test, identity drift.
+   - `2026-11-12-architecture-review-and-gaps.md`: gaps at 1,000+ customers and a phased plan.
 
 ---
 

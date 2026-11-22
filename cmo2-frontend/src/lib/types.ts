@@ -639,6 +639,38 @@ export interface AiInteraction {
   inputTokens: number
   outputTokens: number
   createdAt: string
+  cacheReadTokens: number
+  cacheWriteTokens: number
+}
+
+/** What every AI call for a customer starts from; figures go only into the tasks that use them. */
+export interface IdentityPreview {
+  companyId: number
+  text: string
+  figures: string
+}
+
+export type CanonStatus = 'DRAFT' | 'APPROVED' | 'RETIRED'
+
+export interface CanonVersion {
+  id: number
+  versionNo: number | null
+  status: CanonStatus
+  content: string
+  changeNote: string | null
+  proposedByUserId: number | null
+  approvedByUserId: number | null
+  approvedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+/** A customer's brand canon: only the approved version reaches the AI. */
+export interface CustomerCanon {
+  companyId: number
+  approved: CanonVersion | null
+  draft: CanonVersion | null
+  history: CanonVersion[]
 }
 
 export interface LearningHypothesis {

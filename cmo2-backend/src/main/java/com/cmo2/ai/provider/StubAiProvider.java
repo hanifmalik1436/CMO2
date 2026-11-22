@@ -32,7 +32,7 @@ public class StubAiProvider implements AiProvider {
         if ("CONTENT_IDEAS".equals(kind) && request.jsonSchema() != null) {
             text = StubContentWriter.ideas(request.userPrompt(), maxItems(request.jsonSchema(), "ideas", 8));
         } else if (kind.startsWith("STUDIO:")) {
-            text = StubContentWriter.piece(kind.substring("STUDIO:".length()), request.systemPrompt(), request.userPrompt());
+            text = StubContentWriter.piece(kind.substring("STUDIO:".length()), request.fullSystemPrompt(), request.userPrompt());
         } else if (request.jsonSchema() != null) {
             text = sampleJson(request.jsonSchema(), "answer").toString();
         } else if (kind.startsWith("STRAT:")) {
@@ -46,7 +46,7 @@ public class StubAiProvider implements AiProvider {
                 default -> genericAsset(kind);
             };
         }
-        long inTokens = estimateTokens(request.systemPrompt()) + estimateTokens(request.userPrompt());
+        long inTokens = estimateTokens(request.fullSystemPrompt()) + estimateTokens(request.userPrompt());
         long outTokens = estimateTokens(text);
         return new AiResult(text, inTokens, outTokens, modelId + " (demo)");
     }

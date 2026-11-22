@@ -28,10 +28,12 @@ public class AiInteractionService {
     }
 
     public record Interaction(Long id, Long iterationId, String stage, String kind, String tier, String model,
-                              String prompt, String response, long inputTokens, long outputTokens, Instant createdAt) {
+                              String prompt, String response, long inputTokens, long outputTokens, Instant createdAt,
+                              long cacheReadTokens, long cacheWriteTokens) {
         static Interaction of(AiInteraction a) {
             return new Interaction(a.getId(), a.getIterationId(), a.getStage(), a.getKind(), a.getTier(), a.getModel(),
-                    a.getPromptText(), a.getResponseText(), a.getInputTokens(), a.getOutputTokens(), a.getCreatedAt());
+                    a.getPromptText(), a.getResponseText(), a.getInputTokens(), a.getOutputTokens(), a.getCreatedAt(),
+                    a.getCacheReadTokens(), a.getCacheWriteTokens());
         }
     }
 

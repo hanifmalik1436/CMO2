@@ -85,6 +85,7 @@ public class Stage1Innovation implements LoopStage {
         try {
             JsonNode plan = ai.generateJson(prompts.forCyclePlan(
                     identity.identityBlock(tenantId, companyId),
+                    identity.figuresBlock(tenantId, companyId),
                     memory == null ? null : memory.compressedContext(),
                     memory == null ? List.of() : memory.operatorNotes().stream().map(Note::text).toList(),
                     approved.map(s -> truncate(s, 2000)).orElse(null),

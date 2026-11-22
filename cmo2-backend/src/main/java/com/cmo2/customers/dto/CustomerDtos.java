@@ -44,5 +44,22 @@ public final class CustomerDtos {
             @Size(max = 8000) String notes
     ) {}
 
-    public record IdentityResponse(Long companyId, String text) {}
+    /**
+     * What the AI is told about the customer: {@code text} goes first in every call's system prompt
+     * (and is cached); {@code figures} goes in the request only where the task uses this week's figures.
+     */
+    public record IdentityResponse(Long companyId, String text, String figures) {}
+
+    public record CanonVersionResponse(Long id, Integer versionNo, String status, String content, String changeNote,
+                                       Long proposedByUserId, Long approvedByUserId, Instant approvedAt,
+                                       Instant createdAt, Instant updatedAt) {}
+
+    /** The approved version the AI gets, the working draft if any, and every version, newest first. */
+    public record CanonResponse(Long companyId, CanonVersionResponse approved, CanonVersionResponse draft,
+                                List<CanonVersionResponse> history) {}
+
+    public record SaveCanonDraftRequest(
+            @NotBlank @Size(max = 20_000) String content,
+            @Size(max = 500) String changeNote
+    ) {}
 }

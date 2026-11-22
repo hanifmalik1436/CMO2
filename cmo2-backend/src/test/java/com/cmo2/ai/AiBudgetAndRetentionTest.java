@@ -78,6 +78,7 @@ class AiBudgetAndRetentionTest {
         heavy.setTenantId(tenantId(token));
         heavy.setCompanyId(acme);
         heavy.setInputTokens(1_000_000);
+        heavy.setBudgetTokens(1_000_000);
         interactions.save(heavy);
 
         assertThat(generate(token, acme)).isEqualTo(429);  // over: stopped

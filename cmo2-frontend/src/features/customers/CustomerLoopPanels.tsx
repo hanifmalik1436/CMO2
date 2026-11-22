@@ -225,7 +225,9 @@ export function AiCallsCard({ companyId }: { companyId: number }) {
                       onClick={() => setOpen(open === c.id ? null : c.id)}>
                 <span>{c.kind}{c.stage ? ` · ${c.stage.toLowerCase()}` : ''}</span>
                 <span className="text-gray-500">
-                  {(c.inputTokens + c.outputTokens).toLocaleString()} tokens · {new Date(c.createdAt).toLocaleString()}
+                  {(c.inputTokens + c.cacheReadTokens + c.cacheWriteTokens + c.outputTokens).toLocaleString()} tokens
+                  {c.cacheReadTokens > 0 ? ` (${c.cacheReadTokens.toLocaleString()} cached)` : ''}
+                  {' · '}{new Date(c.createdAt).toLocaleString()}
                 </span>
               </button>
               {open === c.id && (

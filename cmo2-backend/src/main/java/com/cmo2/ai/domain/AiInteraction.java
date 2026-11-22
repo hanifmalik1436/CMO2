@@ -43,4 +43,14 @@ public class AiInteraction extends BaseTenantEntity {
 
     @Column(name = "output_tokens", nullable = false)
     private long outputTokens;
+
+    @Column(name = "cache_read_tokens", nullable = false)
+    private long cacheReadTokens;
+
+    @Column(name = "cache_write_tokens", nullable = false)
+    private long cacheWriteTokens;
+
+    /** What the call counts against the monthly budgets (cache reads at a tenth). */
+    @Column(name = "budget_tokens", nullable = false)
+    private long budgetTokens;
 }

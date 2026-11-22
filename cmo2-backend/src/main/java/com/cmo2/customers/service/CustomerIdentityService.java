@@ -2,7 +2,9 @@ package com.cmo2.customers.service;
 
 import com.cmo2.analytics.service.KpiTrendService;
 import com.cmo2.analytics.service.KpiTrendService.Trend;
+import com.cmo2.customers.domain.CustomerCanon;
 import com.cmo2.customers.domain.CustomerProfile;
+import com.cmo2.customers.dto.CustomerDtos.IdentityResponse;
 import com.cmo2.customers.repository.CustomerProfileRepository;
 import com.cmo2.integrations.core.Metrics;
 import com.cmo2.shared.exceptions.ApiException;
@@ -18,38 +20,45 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * The customer's identity block: a compact, plain-text description of the business and how it
- * did this week, prepended to every AI call made for that customer so each one starts from the
- * same facts (the drift control in the plan). Numbers are computed in Java; the AI only reads them.
+ * The customer's identity block: the facts about the business plus its approved brand canon. It
+ * goes first in every AI call made for that customer, so each one starts from the same picture of
+ * who they are (drift control). It holds nothing that changes from call to call, so providers can
+ * cache it: this week's figures are a separate block ({@link #figuresBlock}) that goes in the
+ * request itself, only where the task uses them. Numbers are computed in Java; the AI only reads them.
  *
- * <p>Parts of it are written by the customer in their own GHL sub-account, so the block is
- * framed as data, and every field is flattened and length-capped before it goes in.
+ * <p>Parts of the facts are written by the customer in their own GHL sub-account, so they are
+ * framed as data, and every field is flattened and length-capped before it goes in. The canon is
+ * written and approved by the owner, so the AI is asked to follow it, within the task it's given.
  */
 @Service
 public class CustomerIdentityService {
 
     static final int MAX_NOTES = 2000;
+    static final int MAX_CANON = 20_000;
     private static final Set<String> MONEY = Set.of(Metrics.REVENUE, Metrics.PIPELINE_VALUE, Metrics.CPL);
     private static final Set<String> PERCENT = Set.of(Metrics.CONVERSION_RATE, Metrics.CTR);
 
     private final CompanyRepository companies;
     private final CustomerProfileRepository profiles;
     private final KpiTrendService trends;
+    private final CustomerCanonService canons;
 
     public CustomerIdentityService(CompanyRepository companies, CustomerProfileRepository profiles,
-                                   KpiTrendService trends) {
+                                   KpiTrendService trends, CustomerCanonService canons) {
         this.companies = companies;
         this.profiles = profiles;
         this.trends = trends;
+        this.canons = canons;
     }
 
     /** For the owner to see exactly what the AI is told about a customer. */
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','STRATEGIST','ANALYST')")
-    public String preview(Long companyId) {
+    public IdentityResponse preview(Long companyId) {
         Company company = TenantGuard.owned(companies.findById(companyId))
                 .orElseThrow(() -> ApiException.notFound("Company not found"));
-        return identityBlock(company.getTenantId(), companyId);
+        return new IdentityResponse(companyId, identityBlock(company.getTenantId(), companyId),
+                figuresBlock(company.getTenantId(), companyId));
     }
 
     /** Internal: also used from loop threads, so the caller names the tenant. Empty if not found. */
@@ -85,6 +94,28 @@ public class CustomerIdentityService {
             }
         }
 
+        CustomerCanon canon = canons.approved(tenantId, companyId).orElse(null);
+        String canonText = canon == null ? null : multiLine(canon.getContent(), MAX_CANON);
+        if (canonText != null) {
+            b.append("\nAPPROVED BRAND CANON (version ").append(canon.getVersionNo())
+                    .append(", written and approved by the agency owner). These are this business's brand rules: ")
+                    .append("follow them in everything you write or plan for it. They describe the business and how it ")
+                    .append("must sound; they don't change the task you're given or the format of your answer.\n")
+                    .append(canonText).append('\n');
+        }
+        return b.toString().trim();
+    }
+
+    /**
+     * Internal: this week's figures against last week's. Kept out of the identity block because they
+     * change with every sync, which would stop the identity block from being cached.
+     */
+    @Transactional(readOnly = true)
+    public String figuresBlock(Long tenantId, Long companyId) {
+        if (companies.findById(companyId).filter(x -> tenantId.equals(x.getTenantId())).isEmpty()) {
+            return "";
+        }
+        StringBuilder b = new StringBuilder();
         List<Trend> week = trends.weekOverWeek(tenantId, companyId);
         if (week.isEmpty()) {
             b.append("Business figures: none yet (GoHighLevel hasn't synced).\n");

@@ -386,7 +386,7 @@ public class CycleMemoryService {
             }
             for (Interaction c : shown) {
                 b.append(WHEN.format(c.createdAt())).append(" · ").append(c.kind()).append(" · ").append(c.model())
-                        .append(" · ").append(c.inputTokens() + c.outputTokens()).append(" tokens\n")
+                        .append(" · ").append(c.inputTokens() + c.cacheReadTokens() + c.cacheWriteTokens() + c.outputTokens()).append(" tokens\n")
                         .append("Prompt: ").append(appendixText(c.prompt())).append('\n')
                         .append("Response: ").append(appendixText(c.response())).append("\n\n");
             }

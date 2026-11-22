@@ -18,7 +18,7 @@ public interface AiInteractionRepository extends JpaRepository<AiInteraction, Lo
     List<AiInteraction> findByTenantIdAndCompanyIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtAsc(
             Long tenantId, Long companyId, Instant from, Instant to);
 
-    @Query("select coalesce(sum(a.inputTokens + a.outputTokens), 0) from AiInteraction a "
+    @Query("select coalesce(sum(a.budgetTokens), 0) from AiInteraction a "
             + "where a.tenantId = :tenantId and a.companyId = :companyId and a.createdAt >= :from")
     long tokensSince(@Param("tenantId") Long tenantId, @Param("companyId") Long companyId, @Param("from") Instant from);
 
