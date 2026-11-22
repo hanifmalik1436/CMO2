@@ -44,10 +44,13 @@ public class AiInteractionRecorder {
         row.setKind(clip(request.kind() == null ? "UNKNOWN" : request.kind(), 64));
         row.setTier(request.tier().name());
         row.setModel(clip(result.model(), 80));
-        row.setPromptText("SYSTEM:\n" + nullToEmpty(request.systemPrompt()) + "\n\nUSER:\n" + nullToEmpty(request.userPrompt()));
+        row.setPromptText("SYSTEM:\n" + nullToEmpty(request.fullSystemPrompt()) + "\n\nUSER:\n" + nullToEmpty(request.userPrompt()));
         row.setResponseText(result.text());
         row.setInputTokens(result.inputTokens());
         row.setOutputTokens(result.outputTokens());
+        row.setCacheReadTokens(result.cacheReadTokens());
+        row.setCacheWriteTokens(result.cacheWriteTokens());
+        row.setBudgetTokens(result.budgetTokens());
         repository.save(row);
     }
 

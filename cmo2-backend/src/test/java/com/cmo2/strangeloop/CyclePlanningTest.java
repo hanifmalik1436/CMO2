@@ -131,7 +131,10 @@ class CyclePlanningTest {
         // Claude was asked for structured output, with the customer's identity in the system prompt.
         assertThat(claudeRequests).hasSize(1);
         assertThat(claudeRequests.get(0).jsonSchema()).isNotNull();
-        assertThat(claudeRequests.get(0).systemPrompt()).contains("CUSTOMER IDENTITY");
+        assertThat(claudeRequests.get(0).context()).startsWith("CUSTOMER IDENTITY");
+        // This week's figures change with every sync, so they go in the request, not the cached context.
+        assertThat(claudeRequests.get(0).context()).doesNotContain("Business figures");
+        assertThat(claudeRequests.get(0).userPrompt()).contains("DATA: this week's figures");
         assertThat(claudeRequests.get(0).userPrompt()).contains("This is the first cycle.");
 
         // Every call is on record against the customer, with the model that made it.

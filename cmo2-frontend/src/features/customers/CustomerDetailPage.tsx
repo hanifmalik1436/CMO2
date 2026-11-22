@@ -8,9 +8,10 @@ import RequireRole from '../../app/guards/RequireRole'
 import { apiErrorMessage } from '../../lib/api'
 import { AiCallsCard, MemoryCard, ScheduleCard } from './CustomerLoopPanels'
 import { LearningPanel } from './LearningPanel'
+import { CanonCard } from './CanonCard'
 import { getCustomerProfile, getIdentityBlock, getWeekTrends, updateCustomerProfile } from './customersApi'
 import { METRIC_ORDER, kpiLabel, kpiValue } from '../integrations/kpiFormat'
-import type { CustomerProfile, CustomerProfileInput, KpiTrend } from '../../lib/types'
+import type { CustomerProfile, CustomerProfileInput, IdentityPreview as IdentityPreviewData, KpiTrend } from '../../lib/types'
 
 // Mirrors UpdateProfileRequest's Bean Validation on the backend.
 const schema = z.object({
@@ -63,6 +64,7 @@ export default function CustomerDetailPage() {
             <WeekFigures companyId={companyId} />
             <LearningPanel companyId={companyId} />
             <MemoryCard companyId={companyId} />
+            <CanonCard companyId={companyId} />
             <ProfileForm profile={profile.data} />
           </div>
           <div className="space-y-6">
@@ -210,21 +212,30 @@ function GhlDetails({ profile: p }: { profile: CustomerProfile }) {
 }
 
 function IdentityPreview({ companyId }: { companyId: number }) {
-  const { data, isLoading, isError, error } = useQuery<string>({
+  const { data, isLoading, isError, error } = useQuery<IdentityPreviewData>({
     queryKey: ['customers', companyId, 'identity'],
     queryFn: () => getIdentityBlock(companyId),
   })
   return (
     <GlassCard>
       <h3 className="font-semibold text-white">What the AI is told</h3>
-      <p className="mt-1 text-xs text-gray-400">Added to every draft and strategist conversation for this customer.</p>
+      <p className="mt-1 text-xs text-gray-400">
+        Opens every AI call for this customer: the profile and the approved canon. It's the same each time, so it's
+        cached and costs little to resend.
+      </p>
       <RequireRole allow={['OWNER', 'ADMIN', 'STRATEGIST', 'ANALYST']} fallback={null}>
         {isLoading && <p className="mt-3 text-sm text-gray-400">Loading…</p>}
         {isError && <p className="mt-3 text-sm text-red-300">{apiErrorMessage(error, 'Could not load the preview')}</p>}
         {data && (
-          <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-black/30 p-3 text-xs text-gray-300">
-            {data}
-          </pre>
+          <>
+            <pre className="mt-3 max-h-[420px] overflow-auto whitespace-pre-wrap rounded-lg bg-black/30 p-3 text-xs text-gray-300">
+              {data.text}
+            </pre>
+            <p className="mt-3 text-xs text-gray-400">This week's figures go only into the cycle plan, as they change with every sync:</p>
+            <pre className="mt-2 max-h-[200px] overflow-auto whitespace-pre-wrap rounded-lg bg-black/30 p-3 text-xs text-gray-400">
+              {data.figures}
+            </pre>
+          </>
         )}
       </RequireRole>
     </GlassCard>

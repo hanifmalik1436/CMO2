@@ -124,7 +124,8 @@ class ContentStudioLiveRoutingTest {
         assertThat(ideasAsk.kind()).isEqualTo("CONTENT_IDEAS");
         assertThat(ideasAsk.jsonSchema()).isNotNull();
         assertThat(ideasAsk.userPrompt()).contains("DATA: source material").contains("stop replying");
-        assertThat(ideasAsk.systemPrompt()).contains("CUSTOMER IDENTITY");
+        assertThat(ideasAsk.context()).startsWith("CUSTOMER IDENTITY");
+        assertThat(ideasAsk.systemPrompt()).doesNotContain("CUSTOMER IDENTITY");
 
         JsonNode batch = runBatch(token, ids[0], """
                 {"sourceId":%d,"ideaIds":[%d],"formats":["LINKEDIN_POST"],"draftsPerFormat":1}""".formatted(ids[1], ids[2]));
@@ -135,8 +136,9 @@ class ContentStudioLiveRoutingTest {
         assertThat(draftAsk.systemPrompt())
                 .contains("You are the LinkedIn specialist")
                 .contains("before 'see more'")          // the LinkedIn agent's own instructions
-                .contains("Never exceed 3000 characters")
-                .contains("CUSTOMER IDENTITY");
+                .contains("Never exceed 3000 characters");
+        // The same customer context opens both calls, so the providers can cache it.
+        assertThat(draftAsk.context()).isEqualTo(ideasAsk.context());
         assertThat(draftAsk.userPrompt()).contains("Title: Quotes stall because they show cost, not savings");
 
         JsonNode queue = read(mvc.perform(get("/api/approvals?companyId=" + ids[0]).header("Authorization", "Bearer " + token)).andReturn());

@@ -74,6 +74,27 @@ class ProviderWireTest {
     }
 
     @Test
+    void openAiGetsTheCustomerContextFirstAndReportsItsCachedTokens() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://openai.test/v1");
+        MockRestServiceServer mock = MockRestServiceServer.bindTo(builder).build();
+        mock.expect(requestTo("https://openai.test/v1/chat/completions"))
+                .andExpect(jsonPath("$.messages[0].content").value("CUSTOMER IDENTITY. Acme\n\nYou write posts."))
+                .andRespond(withSuccess("""
+                        {"model":"gpt-5","choices":[{"message":{"content":"ok","refusal":null}}],
+                         "usage":{"prompt_tokens":1200,"completion_tokens":30,"prompt_tokens_details":{"cached_tokens":1024}}}""",
+                        MediaType.APPLICATION_JSON));
+
+        AiResult result = new OpenAiProvider("sk-test", builder).generate(
+                new AiRequest("You write posts.", "write", AiModelTier.GENERATION, "STUDIO:X_POST", 4096)
+                        .withContext("CUSTOMER IDENTITY. Acme"), "gpt-5");
+
+        assertThat(result.inputTokens()).isEqualTo(176);   // 1200 sent, 1024 of them from the cache
+        assertThat(result.cacheReadTokens()).isEqualTo(1024);
+        assertThat(result.budgetTokens()).isEqualTo(176 + 30 + 103);
+        mock.verify();
+    }
+
+    @Test
     void openAiRefusalsAndRejectedKeysAreErrors() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://openai.test/v1");
         MockRestServiceServer mock = MockRestServiceServer.bindTo(builder).build();
@@ -135,6 +156,33 @@ class ProviderWireTest {
         assertThat(result.text()).isEqualTo("{\"objective\":\"Grow\"}"); // thinking blocks are left out
         assertThat(result.inputTokens()).isEqualTo(200);
         assertThat(result.model()).isEqualTo("claude-opus-5-5");
+    }
+
+    @Test
+    void claudeGetsTheCustomerContextAsACachedFirstSystemBlock() throws Exception {
+        AtomicReference<JsonNode> body = new AtomicReference<>();
+        String base = startFakeAnthropic("""
+                {"id":"msg_2","type":"message","role":"assistant","model":"claude-opus-5-5",
+                 "content":[{"type":"text","text":"ok"}],"stop_reason":"end_turn","stop_sequence":null,
+                 "usage":{"input_tokens":50,"output_tokens":20,"cache_read_input_tokens":3000,"cache_creation_input_tokens":0}}""",
+                body, new AtomicReference<>());
+
+        AiResult result = new AnthropicProvider("sk-ant-test", base, true).generate(
+                new AiRequest("You are the analyst.", "read the week", AiModelTier.STRATEGY, "LEARNING", 4096)
+                        .withContext("CUSTOMER IDENTITY. Acme"), "claude-opus-5-5");
+
+        JsonNode system = body.get().path("system");
+        assertThat(system.isArray()).isTrue();
+        assertThat(system).hasSize(2);
+        assertThat(system.get(0).path("text").asText()).isEqualTo("CUSTOMER IDENTITY. Acme");
+        assertThat(system.get(0).path("cache_control").path("type").asText()).isEqualTo("ephemeral");
+        assertThat(system.get(1).path("text").asText()).isEqualTo("You are the analyst.");
+        assertThat(system.get(1).has("cache_control")).isFalse();
+
+        assertThat(result.cacheReadTokens()).isEqualTo(3000);
+        assertThat(result.cacheWriteTokens()).isZero();
+        assertThat(result.totalTokens()).isEqualTo(3070);
+        assertThat(result.budgetTokens()).isEqualTo(50 + 20 + 300);  // cache reads count a tenth
     }
 
     @Test

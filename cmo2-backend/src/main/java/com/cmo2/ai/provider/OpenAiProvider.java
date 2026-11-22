@@ -79,14 +79,19 @@ public class OpenAiProvider implements AiProvider {
             throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "OpenAI declined this request: " + refusal);
         }
         JsonNode usage = response.path("usage");
-        return new AiResult(message.path("content").asText(""), usage.path("prompt_tokens").asLong(0),
-                usage.path("completion_tokens").asLong(0), response.path("model").asText(modelId));
+        // prompt_tokens includes the cached part; OpenAI caches long prefixes by itself, at no extra charge.
+        long cached = usage.path("prompt_tokens_details").path("cached_tokens").asLong(0);
+        long prompt = usage.path("prompt_tokens").asLong(0);
+        return new AiResult(message.path("content").asText(""), Math.max(0, prompt - cached),
+                usage.path("completion_tokens").asLong(0), response.path("model").asText(modelId), cached, 0);
     }
 
     Map<String, Object> body(AiRequest request, String modelId) {
         List<Map<String, String>> messages = new ArrayList<>();
-        if (request.systemPrompt() != null && !request.systemPrompt().isBlank()) {
-            messages.add(Map.of("role", "system", "content", request.systemPrompt()));
+        // The customer context comes first, so OpenAI's automatic prefix cache can reuse it across calls.
+        String system = request.fullSystemPrompt();
+        if (system != null) {
+            messages.add(Map.of("role", "system", "content", system));
         }
         messages.add(Map.of("role", "user", "content", request.userPrompt()));
 

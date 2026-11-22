@@ -3,11 +3,13 @@ package com.cmo2.ai.provider;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.core.JsonValue;
+import com.anthropic.models.messages.CacheControlEphemeral;
 import com.anthropic.models.messages.JsonOutputFormat;
 import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
 import com.anthropic.models.messages.StopReason;
+import com.anthropic.models.messages.TextBlockParam;
 import com.cmo2.ai.AiMessages.AiRequest;
 import com.cmo2.ai.AiMessages.AiResult;
 import com.cmo2.ai.AiModelTier;
@@ -18,7 +20,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -30,6 +34,9 @@ import java.util.stream.Collectors;
  *   <li>Effort is set per task: high for strategy, medium for generation, low for translation
  *       (Claude Opus 5.5 always thinks and otherwise defaults to medium).</li>
  *   <li>A JSON schema on the request becomes {@code output_config.format} (structured output).</li>
+ *   <li>The request's customer context is the first system block, marked for prompt caching, so
+ *       every call for the same customer within a few minutes reads it from the cache. Prefixes
+ *       below the model's minimum cacheable length are simply not cached.</li>
  *   <li>Server-side refusal fallback is on by default ({@code cmo2.ai.anthropic.refusal-fallback}): a
  *       request a safety classifier declines is retried by the API on another model. A refusal that
  *       still comes back is raised as an error rather than returned as empty text.</li>
@@ -85,7 +92,9 @@ public class AnthropicProvider implements AiProvider {
 
         long inTokens = message.usage().inputTokens();
         long outTokens = message.usage().outputTokens();
-        return new AiResult(text, inTokens, outTokens, message.model().toString());
+        long cacheRead = message.usage().cacheReadInputTokens().orElse(0L);
+        long cacheWrite = message.usage().cacheCreationInputTokens().orElse(0L);
+        return new AiResult(text, inTokens, outTokens, message.model().toString(), cacheRead, cacheWrite);
     }
 
     MessageCreateParams params(AiRequest request, String modelId) {
@@ -102,8 +111,16 @@ public class AnthropicProvider implements AiProvider {
                 .maxTokens(Math.max(MIN_MAX_TOKENS, request.maxTokens()))
                 .outputConfig(output.build())
                 .addUserMessage(request.userPrompt());
+        List<TextBlockParam> system = new ArrayList<>();
+        if (request.context() != null && !request.context().isBlank()) {
+            system.add(TextBlockParam.builder().text(request.context())
+                    .cacheControl(CacheControlEphemeral.builder().build()).build());
+        }
         if (request.systemPrompt() != null && !request.systemPrompt().isBlank()) {
-            builder.system(request.systemPrompt());
+            system.add(TextBlockParam.builder().text(request.systemPrompt()).build());
+        }
+        if (!system.isEmpty()) {
+            builder.systemOfTextBlockParams(system);
         }
         if (refusalFallback) {
             // SDK 2.34 has no typed field for this beta; the API takes it as a body property plus header.

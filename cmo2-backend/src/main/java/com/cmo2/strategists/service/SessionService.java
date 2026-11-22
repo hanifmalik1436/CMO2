@@ -164,9 +164,11 @@ public class SessionService {
     /** The agent's prompt, the session's saved context, and the customer's identity block as it is now. */
     private String systemFor(StrategistAgent agent, StrategistSession session) {
         String block = identity.identityBlock(session.getTenantId(), session.getCompanyId());
+        String figures = identity.figuresBlock(session.getTenantId(), session.getCompanyId());
         return (agent.getSystemPrompt() == null ? "" : agent.getSystemPrompt())
                 + "\n\nCompany context:\n" + (session.getContextJson() == null ? "{}" : session.getContextJson())
-                + (block.isBlank() ? "" : "\n\n" + block);
+                + (block.isBlank() ? "" : "\n\n" + block)
+                + (figures.isBlank() ? "" : "\n\n" + figures);
     }
 
     private String buildContext(Company company, String avatarPersona) {

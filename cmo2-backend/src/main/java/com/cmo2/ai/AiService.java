@@ -63,14 +63,15 @@ public class AiService {
 
         AiResult result = route.provider().generate(request, route.model());
 
-        tokenAccountant.record(result.totalTokens());
+        tokenAccountant.record(result.budgetTokens());
         try {
             interactions.record(request, result, scope);
         } catch (RuntimeException e) {
             log.warn("Could not record AI call ({}): {}", request.kind(), e.getMessage());
         }
-        log.debug("AI call: provider={} tier={} model={} tokens={}",
-                route.provider().name(), request.tier(), result.model(), result.totalTokens());
+        log.debug("AI call: provider={} tier={} model={} tokens={} cacheRead={} cacheWrite={}",
+                route.provider().name(), request.tier(), result.model(), result.totalTokens(),
+                result.cacheReadTokens(), result.cacheWriteTokens());
         return result;
     }
 
