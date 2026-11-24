@@ -134,6 +134,7 @@ public class AnthropicProvider implements AiProvider {
         return switch (tier) {
             case STRATEGY -> OutputConfig.Effort.HIGH;
             case GENERATION -> OutputConfig.Effort.MEDIUM;
+            case TRANSCRIPTION -> OutputConfig.Effort.LOW; // never routed here; Claude can't take audio
             case TRANSLATION -> OutputConfig.Effort.LOW;
         };
     }

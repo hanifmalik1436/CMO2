@@ -120,6 +120,11 @@ function DraftCard({ item }: { item: ApprovalItem }) {
             {format ? `${format.platformLabel} · ${format.label.toLowerCase()}` : a.type.replace(/_/g, ' ').toLowerCase()}
             {' '}· {a.language} · v{a.version} · {new Date(a.createdAt).toLocaleString()}
           </p>
+          {a.suggestedPublishAt && (
+            <p className="mt-1 text-xs text-brand-glow">
+              Smart Schedule suggests {new Date(a.suggestedPublishAt).toLocaleString()} (only once you approve and publish)
+            </p>
+          )}
         </div>
         <StatusPill status={a.status} />
       </div>
@@ -233,7 +238,11 @@ function PostPanel({ item, onDone, format }: { item: ApprovalItem; onDone: () =>
     enabled: social,
   })
   const [chosen, setChosen] = useState<string[] | null>(null)
-  const [when, setWhen] = useState(() => localInput(new Date(Date.now() + 10 * 60_000)))
+  // Smart Schedule's suggestion, when it's still ahead; otherwise ten minutes from now.
+  const [when, setWhen] = useState(() => {
+    const suggested = a.suggestedPublishAt ? new Date(a.suggestedPublishAt) : null
+    return localInput(suggested && suggested.getTime() > Date.now() + 5 * 60_000 ? suggested : new Date(Date.now() + 10 * 60_000))
+  })
   const [media, setMedia] = useState('')
   const [checked, setChecked] = useState(false)
   const [error, setError] = useState<string | null>(null)

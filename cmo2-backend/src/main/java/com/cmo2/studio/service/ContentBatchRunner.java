@@ -2,7 +2,9 @@ package com.cmo2.studio.service;
 
 import com.cmo2.ai.AiCallScope;
 import com.cmo2.ai.PromptRegistry;
+import com.cmo2.assets.domain.Asset;
 import com.cmo2.assets.domain.ContentFormat;
+import com.cmo2.assets.repository.AssetRepository;
 import com.cmo2.assets.service.GenerationService;
 import com.cmo2.assets.service.GenerationService.StudioOrigin;
 import com.cmo2.customers.service.CustomerIdentityService;
@@ -15,6 +17,7 @@ import com.cmo2.studio.domain.ContentSource;
 import com.cmo2.studio.repository.ContentBatchRepository;
 import com.cmo2.studio.repository.ContentIdeaRepository;
 import com.cmo2.studio.repository.ContentSourceRepository;
+import com.cmo2.tenancy.domain.Company;
 import com.cmo2.tenancy.repository.CompanyRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,9 +29,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -49,13 +58,14 @@ public class ContentBatchRunner {
     private final PromptRegistry prompts;
     private final CustomerIdentityService identity;
     private final CompanyRepository companies;
+    private final AssetRepository assets;
     private final TeamNotifier team;
     private final ObjectMapper json;
     private final TaskExecutor executor;
 
     public ContentBatchRunner(ContentBatchRepository batches, ContentSourceRepository sources, ContentIdeaRepository ideas,
                               GenerationService generation, PromptRegistry prompts, CustomerIdentityService identity,
-                              CompanyRepository companies, TeamNotifier team, ObjectMapper json,
+                              CompanyRepository companies, AssetRepository assets, TeamNotifier team, ObjectMapper json,
                               @Qualifier("studioTaskExecutor") TaskExecutor executor) {
         this.batches = batches;
         this.sources = sources;
@@ -64,6 +74,7 @@ public class ContentBatchRunner {
         this.prompts = prompts;
         this.identity = identity;
         this.companies = companies;
+        this.assets = assets;
         this.team = team;
         this.json = json;
         this.executor = executor;
@@ -71,7 +82,7 @@ public class ContentBatchRunner {
 
     /** What a batch was asked for (stored as the batch's request JSON). */
     public record Plan(List<Long> ideaIds, boolean includeFullSource, List<String> formats, int draftsPerFormat,
-                       boolean translate) {}
+                       boolean translate, boolean smartSchedule) {}
 
     /** One thing to write about: an idea, or the whole source ({@code ideaId} null). */
     record Material(Long ideaId, String name, String label, String text) {}
@@ -95,6 +106,7 @@ public class ContentBatchRunner {
             Plan plan = json.readValue(batch.getRequestJson(), Plan.class);
             String identityBlock = identity.identityBlock(tenantId, batch.getCompanyId());
             List<Material> materials = materials(tenantId, source, plan);
+            SmartSchedule schedule = plan.smartSchedule() ? schedule(tenantId, batch.getCompanyId()) : null;
 
             String stopReason = null;
             try (AiCallScope scope = AiCallScope.forCompany(batch.getCompanyId())) {
@@ -109,7 +121,8 @@ public class ContentBatchRunner {
                                         prompts.forContentPiece(format.name(), format.platformLabel, format.label,
                                                 format.guidance, format.maxChars, identityBlock, m.label(), m.text(),
                                                 d, plan.draftsPerFormat()),
-                                        new StudioOrigin(format.platform, format.name(), batchId, m.ideaId()),
+                                        new StudioOrigin(format.platform, format.name(), batchId, m.ideaId(),
+                                                schedule != null && format.publishable ? schedule.next(format.platform) : null),
                                         plan.translate());
                                 batch.setCompleted(batch.getCompleted() + 1);
                             } catch (ApiException e) {
@@ -138,6 +151,27 @@ public class ContentBatchRunner {
             if (batch != null) finish(batch, ContentBatch.FAILED, "Batch failed: " + e.getMessage());
         } finally {
             TenantContext.clear();
+        }
+    }
+
+    /** Smart Schedule for the customer, in their timezone, around posts already suggested for them. */
+    private SmartSchedule schedule(Long tenantId, Long companyId) {
+        ZoneId zone = companies.findById(companyId).map(Company::getTimezone).filter(z -> z != null && !z.isBlank())
+                .map(ContentBatchRunner::zone).orElse(ZoneOffset.UTC);
+        Instant now = Instant.now();
+        Map<String, Set<LocalDate>> taken = new HashMap<>();
+        for (Asset a : assets.findByTenantIdAndCompanyIdAndSuggestedPublishAtAfter(tenantId, companyId, now)) {
+            if (a.getPlatform() == null) continue;
+            taken.computeIfAbsent(a.getPlatform(), p -> new HashSet<>()).add(SmartSchedule.localDate(a.getSuggestedPublishAt(), zone));
+        }
+        return new SmartSchedule(zone, now, taken);
+    }
+
+    private static ZoneId zone(String id) {
+        try {
+            return ZoneId.of(id);
+        } catch (Exception e) {
+            return ZoneOffset.UTC;
         }
     }
 

@@ -7,9 +7,12 @@ import com.cmo2.shared.exceptions.ApiException;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
@@ -84,6 +87,47 @@ public class OpenAiProvider implements AiProvider {
         long prompt = usage.path("prompt_tokens").asLong(0);
         return new AiResult(message.path("content").asText(""), Math.max(0, prompt - cached),
                 usage.path("completion_tokens").asLong(0), response.path("model").asText(modelId), cached, 0);
+    }
+
+    /**
+     * Speech to text through {@code /audio/transcriptions}. The audio is sent once and not kept by
+     * CMO². Token usage is read when the model reports it (whisper-1 doesn't; it's billed by the minute).
+     */
+    @Override
+    public AiResult transcribe(byte[] audio, String filename, String mimeType, String modelId) {
+        if (!isConfigured()) {
+            throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "AI provider 'openai' selected but cmo2.ai.openai.api-key is not set");
+        }
+        MultiValueMap<String, Object> form = new LinkedMultiValueMap<>();
+        form.add("model", modelId);
+        form.add("response_format", "json");
+        form.add("file", new ByteArrayResource(audio) {
+            @Override
+            public String getFilename() {
+                return filename == null || filename.isBlank() ? "recording.webm" : filename;
+            }
+        });
+        JsonNode response;
+        try {
+            response = client.post().uri("/audio/transcriptions")
+                    .headers(h -> h.setBearerAuth(apiKey))
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(form)
+                    .retrieve().body(JsonNode.class);
+        } catch (RestClientResponseException e) {
+            int status = e.getStatusCode().value();
+            throw new ApiException(status == 429 ? HttpStatus.TOO_MANY_REQUESTS : HttpStatus.BAD_GATEWAY,
+                    "OpenAI couldn't transcribe the audio (" + status + (status == 401 ? ": the API key was rejected" : "") + ")");
+        } catch (Exception e) {
+            throw new ApiException(HttpStatus.BAD_GATEWAY, "Could not reach OpenAI: " + e.getMessage());
+        }
+        if (response == null || response.path("text").asText("").isBlank()) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "No speech was found in the recording");
+        }
+        JsonNode usage = response.path("usage");
+        return new AiResult(response.path("text").asText(), usage.path("input_tokens").asLong(0),
+                usage.path("output_tokens").asLong(0), modelId);
     }
 
     Map<String, Object> body(AiRequest request, String modelId) {

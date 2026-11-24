@@ -66,7 +66,8 @@ class ContentStudioLiveRoutingTest {
             return new AiResult("""
                     {"ideas":[{"type":"INSIGHT","title":"Quotes stall because they show cost, not savings",
                       "summary":"Leading with the monthly saving turns a cost into an investment.",
-                      "hooks":["Your quote is losing you the sale."],"quote":"The quote shows a price but not the monthly saving."}]}""",
+                      "hooks":["Your quote is losing you the sale."],"quote":"The quote shows a price but not the monthly saving.",
+                      "viralityScore":72,"viralityReason":"Specific number: a concrete saving stops the scroll."}]}""",
                     800, 200, "claude-opus-5-5");
         });
         when(openAi.generate(any(), anyString())).thenAnswer(inv -> {
@@ -98,9 +99,13 @@ class ContentStudioLiveRoutingTest {
                         .contentType(MediaType.APPLICATION_JSON).content(json.writeValueAsString(Map.of(
                                 "title", "Podcast", "kind", "TRANSCRIPT", "body", ContentStudioFlowTest.TRANSCRIPT))))
                 .andExpect(status().isCreated()).andReturn()).get("source").get("id").asLong();
-        long idea = read(mvc.perform(post("/api/studio/sources/" + source + "/analyze?count=3")
-                .header("Authorization", "Bearer " + token)).andExpect(status().isOk()).andReturn())
-                .get("ideas").get(0).get("id").asLong();
+        // Every new source is searched for ideas in the background.
+        JsonNode[] detail = new JsonNode[1];
+        await().atMost(Duration.ofSeconds(20)).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> {
+            detail[0] = read(mvc.perform(get("/api/studio/sources/" + source).header("Authorization", "Bearer " + token)).andReturn());
+            assertThat(detail[0].get("source").get("status").asText()).isEqualTo("READY");
+        });
+        long idea = detail[0].get("ideas").get(0).get("id").asLong();
         return new long[] {company, source, idea};
     }
 

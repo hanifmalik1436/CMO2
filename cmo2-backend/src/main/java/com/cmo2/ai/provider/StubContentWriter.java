@@ -57,6 +57,15 @@ final class StubContentWriter {
                 default -> "Most people miss this.";
             });
             idea.put("quote", clip(sentence, 400));
+            idea.put("viralityScore", Math.max(40, 88 - i * 6));   // best first, like the real model
+            idea.put("viralityReason", switch (type) {
+                case "CONTRARIAN" -> "Contrarian take: challenges what the audience assumes, which invites replies.";
+                case "STORY" -> "Story hook: a real situation the audience recognises keeps them reading.";
+                case "TIP" -> "Practical tip: easy to save and share.";
+                case "STAT" -> "Specific detail: concrete facts stop the scroll.";
+                case "HOW_TO" -> "How-to: promises a clear payoff in the first line.";
+                default -> "Curiosity gap: names a problem most people miss.";
+            });
         }
         ObjectNode root = JsonNodeFactory.instance.objectNode();
         root.set("ideas", list);
@@ -109,13 +118,13 @@ final class StubContentWriter {
                     + "\n\n[CTA] Follow " + business + " for more like this.\n\n"
                     + (format.equals("YOUTUBE_SHORT") ? "Title: " + clip(topic, 60)
                     : "Caption: " + clip(hook, 100) + " #marketing #smallbusiness #tips");
-            case "YOUTUBE_VIDEO" -> "[COLD OPEN] " + hook + "\n\n[INTRO] In this video: " + topic + ", and what "
+            case "YOUTUBE_VIDEO", "YOUTUBE_OUTLINE" -> "[COLD OPEN] " + hook + "\n\n[INTRO] In this video: " + topic + ", and what "
                     + business + " does about it.\n\n## 1. The problem\n" + point + "\n\n## 2. Why it happens\nMost teams "
                     + "measure activity instead of results.\n\n## 3. The fix\nPick one outcome, track it weekly, cut the "
                     + "rest.\n\n## 4. A real example\nWalk through a recent customer.\n\n[CTA] Subscribe and tell us in "
                     + "the comments what you'll try first.\n\nTitle: " + clip(topic, 70) + "\nDescription: " + clip(point, 200)
                     + "\nChapters: 00:00 Intro · 00:45 The problem · 02:00 Why · 03:30 The fix · 05:15 Example";
-            case "THREADS_POST" -> clip(hook + " " + clip(point, 250) + " What's your take?", 500);
+            case "THREADS_POST", "YOUTUBE_COMMUNITY_POST", "SUBSTACK_POST" -> clip(hook + " " + clip(point, 250) + " What's your take?", 500);
             case "INSTAGRAM_CAPTION" -> "[Image: a simple graphic reading \"" + clip(topic, 40) + "\"]\n\n" + hook + "\n\n"
                     + clip(point, 300) + "\n\nThe fix is simpler than you think: one goal, measured every week.\n\n"
                     + "Tap the link in bio to talk to " + business + ".\n\n#smallbusiness #marketing #growth #tips "
@@ -124,13 +133,20 @@ final class StubContentWriter {
                     + "this at " + business + ". Comment \"INFO\" or send us a message and we'll show you how.";
             case "GOOGLE_BUSINESS_POST" -> topic + "\n\n" + clip(point, 400) + "\n\n" + business + " helps local "
                     + "businesses put this into practice. Call us or book online to get started.";
-            case "SITE_ARTICLE" -> "SEO title: " + clip(topic, 60) + "\nMeta description: " + clip(point, 150)
+            case "X_LONG_POST" -> hook + "\n\n" + point + "\n\nThe pattern we keep seeing: people wait, hoping it "
+                    + "sorts itself out. It rarely does.\n\nThree things that help:\n1. Get the facts first.\n2. Know "
+                    + "every option, not just one.\n3. Decide before a deadline decides for you.\n\nWhat would you add?";
+            case "SITE_LEAD_MAGNET" -> "# " + clip(topic, 80) + ": a one-page checklist\n\nFor anyone who wants a clear "
+                    + "next step.\n\n1. Write down where things stand today.\n2. Gather the paperwork you already have.\n"
+                    + "3. List the questions you need answered.\n4. Note every deadline.\n5. " + clip(point, 160)
+                    + "\n6. Compare your options side by side.\n7. Talk to " + business + " for a straight answer.";
+            case "SITE_ARTICLE", "X_ARTICLE", "LINKEDIN_ARTICLE" -> "SEO title: " + clip(topic, 60) + "\nMeta description: " + clip(point, 150)
                     + "\n\n# " + topic + "\n\n" + hook + " " + point + "\n\n## Why this matters\nMost businesses spend "
                     + "their time on activity that doesn't move results.\n\n## What to do instead\nChoose one outcome, "
                     + "measure it weekly, and stop what doesn't help.\n\n## A simple plan for this month\n1. Pick the "
                     + "result.\n2. Set a weekly check-in.\n3. Review after four weeks.\n\n## Conclusion\nSmall, measured "
                     + "steps beat big plans. Talk to " + business + " to get started.";
-            case "SUBSTACK_NEWSLETTER" -> "Subject: " + clip(topic, 60) + "\nPreview: " + clip(hook, 90) + "\n\nHi there,"
+            case "SUBSTACK_NEWSLETTER", "LINKEDIN_NEWSLETTER", "SITE_NEWSLETTER" -> "Subject: " + clip(topic, 60) + "\nPreview: " + clip(hook, 90) + "\n\nHi there,"
                     + "\n\nThis week I kept coming back to one idea: " + lowerFirst(stripEnd(point)) + ".\n\nHere's why "
                     + "it matters, and three things you can do about it:\n\n1. Pick one result to focus on.\n2. Check it "
                     + "every week.\n3. Cut what doesn't move it.\n\nHit reply and tell me which one you'll try.\n\n"

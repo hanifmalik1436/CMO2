@@ -26,6 +26,10 @@ public class AiRouter {
     private final Map<AiModelTier, String> explicitRoutes = new EnumMap<>(AiModelTier.class);
     private final Map<String, Map<AiModelTier, String>> models;
 
+    /** OpenAI's speech-to-text model; field-injected so the constructor keeps its shape. */
+    @Value("${cmo2.ai.openai.transcription-model:whisper-1}")
+    private String transcriptionModel = "whisper-1";
+
     public AiRouter(List<AiProvider> providerBeans,
                     @Value("${cmo2.ai.provider:stub}") String defaultProvider,
                     @Value("${cmo2.ai.route.strategy:}") String strategyRoute,
@@ -61,11 +65,20 @@ public class AiRouter {
             throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,
                     "AI provider '" + name + "' handles " + tier + " but has no API key configured");
         }
-        String model = models.getOrDefault(name, models.get("anthropic")).get(tier);
+        String model = tier == AiModelTier.TRANSCRIPTION ? transcriptionModel
+                : models.getOrDefault(name, models.get("anthropic")).get(tier);
         return new Route(provider, model);
     }
 
     String providerName(AiModelTier tier) {
+        if (tier == AiModelTier.TRANSCRIPTION) {
+            if ("stub".equals(defaultProvider)) return "stub";
+            if (!configured("openai")) {
+                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "Turning audio into text needs an OpenAI key "
+                        + "(CMO2_AI_OPENAI_API_KEY): Claude can't transcribe recordings. Paste the text instead.");
+            }
+            return "openai";
+        }
         String explicit = explicitRoutes.get(tier);
         if (explicit != null) return explicit;
         if ("stub".equals(defaultProvider)) return "stub";
@@ -74,6 +87,7 @@ public class AiRouter {
         return switch (tier) {
             case STRATEGY -> claude ? "anthropic" : defaultProvider;
             case GENERATION, TRANSLATION -> openAi ? "openai" : claude ? "anthropic" : defaultProvider;
+            case TRANSCRIPTION -> "openai";
         };
     }
 

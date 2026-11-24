@@ -70,6 +70,7 @@ All phases are implemented and covered by tests (136 backend tests, all passing 
 | 6 | Claude + OpenAI side by side with per-task routing, structured JSON output (`AiService.generateJson`), Stage 1 plans with AI and drafts posts | `ai/`, `strangeloop/stages/Stage1Innovation` |
 | 7 | Stage 2 learning records, Stage 4 gaps, Stage 5 experiments (propose → owner decides → measured in a later cycle) | `strangeloop/learning/`, `strangeloop/experiments/`, stages 2/4/5 |
 | + | **Brand canon + cached customer context** (19 Nov 2026, drift-control plan step 1): a versioned canon per customer (staff draft, owner/admin approve, history kept); only the approved version reaches the AI, in full, as the first, cached system block of every call. Weekly figures moved out of the identity block into the cycle plan's request. AI call log and budgets count prompt-cache reads (at a tenth) and writes | `customers/service/CustomerCanonService`, `customers/service/CustomerIdentityService`, `ai/AiMessages`, `ai/provider/` |
+| + | **Content Studio redesign** (22 Nov 2026, `docs/plans/2026-11-22-content-studio-redesign.md`): three screens (Studio start with a record orb and "bring in a source" dock; Content Library; Advanced Content Generator). New ways in: voice recording and audio files (transcribed by OpenAI, audio never stored), .txt/.md/.pdf/.docx uploads, web links (private-network addresses refused). Every source is searched for ideas in the background; ideas carry a 0–100 hook score and reason, best first. Favourites, last used, drafts generated. 9 more formats (24 in all). Smart Schedule suggests a posting time per publishable draft (one per platform a day, customer's timezone); Approvals pre-fills it, nothing is scheduled before approval | `studio/service/SourceIntake`, `IdeaFinder`, `SourceAnalysisRunner`, `SmartSchedule`, `cmo2-frontend/src/features/studio/` |
 | + | **Content Studio** (30 Oct 2026): paste a transcript/notes/article → AI finds ideas (hooks, quote) → pick ideas and formats (15 formats across X, LinkedIn, YouTube, TikTok, Threads, Instagram, Facebook, Google Business, website, Substack) → each format's own agent writes the drafts in the background → all land in Approvals. GHL-supported post formats publish through Social Planner; the rest (threads, carousels, scripts, articles, newsletters) are copy & paste. Max 40 pieces per batch; stops cleanly when the AI budget runs out. With no AI key, demo drafts are built from the real source text | `studio/`, `assets/domain/ContentFormat`, `ai/provider/StubContentWriter` |
 
 **Owner screens (frontend):** Customers, the customer page (`/customers/:id`: schedule, last 7
@@ -82,7 +83,7 @@ what-if, Alerts, Reports.
 
 **Database:** Flyway migrations `V1`–`V19` in `cmo2-backend/src/main/resources/db/migration/`
 (`V14` is Quartz's own schema; `V17` is the Content Studio; `V19` is the brand canon and
-cache-token columns). The next migration is `V20`.
+cache-token columns; `V20` is the studio library). The next migration is `V21`.
 
 ---
 
@@ -125,6 +126,7 @@ Every external call has been tested only against mocked responses.
 |---|---|
 | **GHL Marketplace app + a sandbox sub-account** | Agency install and listing sub-accounts; real figures (revenue units, appointment counting, opportunity search); the first real social post (GHL docs disagree on the `Version` header for Social Planner); listing and changing custom values |
 | **The email spike** | Whether GHL's public Campaign V2 API can create and schedule emails. Plan and decision rule: `docs/spikes/2026-10-28-ghl-email-spike.md`. No email-sending code until it's answered. |
+| **Content Studio intake** | A real voice recording and an audio file through OpenAI transcription (`whisper-1` by default), and Add From Link on a few real article sites (pages that need JavaScript return little text). |
 | **Claude and OpenAI keys** | One live cycle. Check the Claude refusal-fallback setting is accepted (turn off with `CMO2_AI_ANTHROPIC_REFUSAL_FALLBACK=false` if not), and that `gpt-5` / `gpt-5-mini` are valid on your OpenAI account. Run one Content Studio batch for a customer with an approved canon: from the second draft on, the AI calls list should show cached tokens (a context below the model's minimum cacheable length is simply not cached). |
 | **Your Notion / Confluence / Linear** | One cycle that writes pages and issues, then a second that reads your edits back. |
 | **GHL app scopes** | Enable the list in `.env.example` (includes `users.readonly` and `calendars.readonly`). |

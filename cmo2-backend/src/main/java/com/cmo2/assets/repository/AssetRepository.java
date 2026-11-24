@@ -16,6 +16,9 @@ public interface AssetRepository extends JpaRepository<Asset, Long> {
 
     List<Asset> findByParentAssetId(Long parentAssetId);
 
+    /** Drafts that already have a Smart Schedule suggestion after {@code after} (to avoid two posts a day). */
+    List<Asset> findByTenantIdAndCompanyIdAndSuggestedPublishAtAfter(Long tenantId, Long companyId, Instant after);
+
     List<Asset> findByTenantIdAndStatusOrderByCreatedAtAsc(Long tenantId, AssetStatus status);
 
     List<Asset> findByTenantIdAndCompanyIdAndStatusOrderByCreatedAtAsc(Long tenantId, Long companyId, AssetStatus status);

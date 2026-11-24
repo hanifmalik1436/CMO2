@@ -34,7 +34,7 @@ It is not a self-serve SaaS: there is no public sign-up (`CMO2_SELF_REGISTRATION
 | Layer | Choice |
 |---|---|
 | Backend | Java 17, Spring Boot 3.3.5, Spring Security 6 (JWT), Spring Data JPA / Hibernate 6 |
-| Database | MySQL 8 with **Flyway** (`V1`–`V19`); tests run on **H2** |
+| Database | MySQL 8 with **Flyway** (`V1`–`V20`); tests run on **H2** |
 | Scheduling | **Quartz** (JDBC job store in MySQL, in-memory in tests); Spring `@Scheduled` for syncs and sweeps |
 | Real-time | Spring WebSocket / STOMP (loop progress) |
 | AI | Anthropic Java SDK 2.34 (Claude); OpenAI Chat Completions over `RestClient`; both behind `AiService` |
@@ -98,7 +98,7 @@ Frontend features mirror backend modules.
      git-ignored.
 4. **Webhooks are verified before they're trusted**: GHL with Ed25519 (`X-GHL-Signature`), Stripe
    with its signing secret. They are persisted raw to `webhook_events`.
-5. **Schema changes only through Flyway.** The next migration is **`V20__…sql`**. Hibernate runs
+5. **Schema changes only through Flyway.** The next migration is **`V21__…sql`**. Hibernate runs
    with `ddl-auto=validate`, and tests build the schema from entities, so entity mappings must match
    the SQL exactly:
    - use `@Column(columnDefinition = "LONGTEXT")`, never `@Lob`
@@ -187,7 +187,9 @@ npm run dev              # http://localhost:5173
   defaults). A fresh clone needs one; every setting can also come from env vars listed in
   `.env.example`.
 - No keys needed by default:
-  - `CMO2_AI_PROVIDER=stub` (demo AI)
+  - `CMO2_AI_PROVIDER=stub` (demo AI). The test profile pins the demo AI, blank AI keys and agency
+    GHL mode, so a local `application.properties` with real keys never makes tests call Claude or
+    OpenAI (it did until 22 Nov 2026).
   - GHL demo mode for `demo-…` keys
   - workspace tools simply not connected
 - Demo with seeded data: `DEMO_RUNBOOK.md` (Spring profile `demo`; never in production).

@@ -51,6 +51,18 @@ public class StubAiProvider implements AiProvider {
         return new AiResult(text, inTokens, outTokens, modelId + " (demo)");
     }
 
+    /** Demo transcript, so recordings work end to end without an OpenAI key. */
+    @Override
+    public AiResult transcribe(byte[] audio, String filename, String mimeType, String modelId) {
+        String text = "(Demo transcript: set an OpenAI key to transcribe real recordings.) Most of our customers "
+                + "come to us after months of trying to sort the problem out alone. The first thing we do is listen. "
+                + "Then we lay out every option in plain English, including the ones that don't involve us. "
+                + "People tell us the relief comes from finally understanding where they stand. "
+                + "The biggest mistake we see is waiting too long, because every month narrows the choices. "
+                + "If you take one thing from this: ask for a straight answer early, before the deadline decides for you.";
+        return new AiResult(text, Math.max(1, audio.length / 4000), estimateTokens(text), modelId + " (demo)");
+    }
+
     /** Demo strategist deliverables; Market Analysis returns the TAM/SAM/SOM exit-criteria set. */
     private String strategistDeliverable(String agentCode) {
         if ("MARKET_ANALYSIS".equals(agentCode)) {

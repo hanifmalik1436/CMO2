@@ -78,6 +78,8 @@ export interface Asset {
   platform: string | null
   contentFormat: string | null
   batchId: number | null
+  /** Smart Schedule's suggested publishing time; nothing is scheduled until the draft is approved and published. */
+  suggestedPublishAt: string | null
 }
 
 /** GENERATED and TRANSLATED only appear on drafts made before approvals existed. */
@@ -730,7 +732,10 @@ export interface StudioFormat {
   guidance: string
 }
 
-export type ContentSourceKind = 'TRANSCRIPT' | 'NOTES' | 'ARTICLE'
+export type ContentSourceKind = 'TRANSCRIPT' | 'NOTES' | 'ARTICLE' | 'RECORDING' | 'UPLOAD' | 'LINK'
+
+/** Where the background idea search stands. */
+export type ContentSourceStatus = 'PENDING' | 'ANALYZING' | 'READY' | 'TOO_SHORT' | 'FAILED'
 
 export interface ContentSourceSummary {
   id: number
@@ -742,6 +747,14 @@ export interface ContentSourceSummary {
   analyzedAt: string | null
   ideaCount: number
   createdAt: string
+  status: ContentSourceStatus
+  statusNote: string | null
+  starred: boolean
+  lastUsedAt: string | null
+  /** Drafts written from this source so far. */
+  generated: number
+  originUrl: string | null
+  originFile: string | null
 }
 
 export interface ContentIdea {
@@ -751,6 +764,9 @@ export interface ContentIdea {
   summary: string | null
   hooks: string[]
   quote: string | null
+  /** Hook strength for this customer's audience, 0–100 (null for ideas found before scoring). */
+  viralityScore: number | null
+  viralityReason: string | null
 }
 
 export interface ContentSourceDetail {
@@ -779,4 +795,5 @@ export interface ContentBatchInput {
   formats: string[]
   draftsPerFormat: number
   translate: boolean
+  smartSchedule: boolean
 }

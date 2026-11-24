@@ -129,7 +129,9 @@ public class PromptRegistry {
 
     /**
      * Content Studio: find the ideas in a source (a transcript, notes, an article) worth turning into
-     * content. The schema asks for a type, title, summary, hooks and a supporting quote per idea.
+     * content. The schema asks for a type, title, summary, hooks, a supporting quote and a hook-strength
+     * score with its reason per idea. The score never outranks the customer's canon: a hook that breaks
+     * the brand rules isn't a strong hook for this business.
      */
     public AiRequest forContentIdeas(String identityBlock, String sourceTitle, String sourceText, int count) {
         String system = "You are a content strategist who finds the ideas in raw material that would make strong "
@@ -139,7 +141,13 @@ public class PromptRegistry {
         String user = "DATA: source material \"" + sourceTitle + "\"\n" + clip(sourceText, MAX_SOURCE_CHARS)
                 + "\n\nFind the " + count + " strongest ideas in this material, best first. For each: its type, a "
                 + "headline-style title, a one-sentence summary, up to three short hooks a post could open with, and "
-                + "the sentence from the material that best supports it (quoted exactly).";
+                + "the sentence from the material that best supports it (quoted exactly).\n\nAlso score each idea's "
+                + "hook strength from 0 to 100: how likely its opening is to stop this business's audience scrolling and "
+                + "get it shared, saved or answered. Give a one-line reason naming the pattern it uses (curiosity gap, "
+                + "contrarian take, specific number, story, common mistake, how-to, before/after). Score honestly: most "
+                + "ideas are 40 to 75. A hook that breaks the business's brand rules or banned topics, or that relies on "
+                + "fear, hype or promises it can't keep, scores low however catchy it is. Order the ideas by score, "
+                + "highest first.";
         return new AiRequest(system, user, AiModelTier.STRATEGY, "CONTENT_IDEAS", 4096).withContext(identityBlock);
     }
 

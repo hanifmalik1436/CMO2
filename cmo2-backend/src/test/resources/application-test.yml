@@ -46,6 +46,18 @@ cmo2:
     lockout-minutes: 15
   cors:
     allowed-origins: http://localhost:5173
+  # Tests never use real AI or the local GHL setup: the git-ignored application.properties may
+  # hold real keys and a different mode, and tests must not spend money or depend on it. Tests
+  # that check live routing set the provider themselves and mock it.
+  ai:
+    provider: stub
+    api-key: ""
+    openai:
+      api-key: ""
+  ghl:
+    mode: agency
+  studio:
+    allow-private-links: false
   loop:
     stage-delay-ms: 0        # run cycles instantly in tests
   billing:

@@ -67,14 +67,15 @@ public final class AssetDtos {
             String reviewNote,
             String platform,
             String contentFormat,
-            Long batchId
+            Long batchId,
+            Instant suggestedPublishAt
     ) {
         public static AssetResponse of(Asset a) {
             return new AssetResponse(a.getId(), a.getCompanyId(), a.getType().name(), a.getLanguage().name(),
                     a.getStatus().name(), a.getTitle(), a.getContentJson(), a.getVersion(),
                     a.getParentAssetId(), a.getTokensUsed(), a.getCreatedAt(),
                     a.getReviewedBy(), a.getReviewedAt(), a.getReviewNote(),
-                    a.getPlatform(), a.getContentFormat(), a.getBatchId());
+                    a.getPlatform(), a.getContentFormat(), a.getBatchId(), a.getSuggestedPublishAt());
         }
     }
 

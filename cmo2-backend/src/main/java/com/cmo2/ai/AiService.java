@@ -76,6 +76,34 @@ public class AiService {
     }
 
     /**
+     * Speech to text (Content Studio recordings and audio uploads), budget-checked and recorded like
+     * any other call. Must be called within a tenant context and, for a customer, an
+     * {@link AiCallScope}. The audio isn't stored; the call log keeps the file name, size and transcript.
+     */
+    public AiResult transcribe(byte[] audio, String filename, String mimeType) {
+        AiCallScope.Scope scope = AiCallScope.current();
+        costGuard.assertWithinBudget();
+        if (scope.companyId() != null) {
+            assertCompanyWithinBudget(scope.companyId());
+        }
+        Route route = router.route(AiModelTier.TRANSCRIPTION);
+        AiResult raw = route.provider().transcribe(audio, filename, mimeType, route.model());
+        // Speech-to-text isn't always billed in tokens; count the transcript so budgets still move.
+        long estimated = raw.inputTokens() + raw.outputTokens() == 0 ? Math.max(1, raw.text().length() / 4) : 0;
+        AiResult result = new AiResult(raw.text(), raw.inputTokens(), raw.outputTokens() + estimated, raw.model());
+
+        AiRequest asked = new AiRequest(null, "[audio file \"" + filename + "\", " + (audio.length / 1024) + " KB, "
+                + mimeType + "]", AiModelTier.TRANSCRIPTION, "TRANSCRIPTION", 0);
+        tokenAccountant.record(result.budgetTokens());
+        try {
+            interactions.record(asked, result, scope);
+        } catch (RuntimeException e) {
+            log.warn("Could not record AI call (TRANSCRIPTION): {}", e.getMessage());
+        }
+        return result;
+    }
+
+    /**
      * Asks for JSON matching {@code schema} (the provider's structured-output mode gets a copy without
      * length and count limits) and checks the whole schema here. One repair attempt, which names
      * what was wrong; both attempts are metered and recorded like any other call.

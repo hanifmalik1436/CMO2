@@ -25,10 +25,24 @@ public final class StudioDtos {
             @NotBlank @Size(max = 100_000) String body
     ) {}
 
+    /**
+     * A source in the Content Library. {@code status} is PENDING, ANALYZING, READY, TOO_SHORT or FAILED;
+     * {@code generated} counts the drafts written from it.
+     */
     public record SourceView(Long id, Long companyId, String title, String kind, int characters, String preview,
-                             Instant analyzedAt, int ideaCount, Instant createdAt) {}
+                             Instant analyzedAt, int ideaCount, Instant createdAt, String status, String statusNote,
+                             boolean starred, Instant lastUsedAt, long generated, String originUrl, String originFile) {}
 
-    public record IdeaView(Long id, String type, String title, String summary, List<String> hooks, String quote) {}
+    /** {@code viralityScore} (0–100) rates the hook for this customer's audience; null for older ideas. */
+    public record IdeaView(Long id, String type, String title, String summary, List<String> hooks, String quote,
+                           Integer viralityScore, String viralityReason) {}
+
+    public record LinkSourceRequest(
+            @NotBlank @Size(max = 2048) String url,
+            @Size(max = 200) String title
+    ) {}
+
+    public record StarRequest(boolean starred) {}
 
     public record SourceDetail(SourceView source, String body, List<IdeaView> ideas) {}
 
@@ -42,8 +56,14 @@ public final class StudioDtos {
             @Size(max = 20) List<Long> ideaIds,
             @NotEmpty @Size(max = 20) List<String> formats,
             @Min(1) @Max(3) int draftsPerFormat,
-            boolean translate
-    ) {}
+            boolean translate,
+            boolean smartSchedule
+    ) {
+        public BatchRequest(Long sourceId, boolean includeFullSource, List<Long> ideaIds, List<String> formats,
+                            int draftsPerFormat, boolean translate) {
+            this(sourceId, includeFullSource, ideaIds, formats, draftsPerFormat, translate, false);
+        }
+    }
 
     public record BatchView(Long id, Long companyId, Long sourceId, String status, int totalPieces, int completed,
                             int failed, String note, Instant createdAt, Instant finishedAt) {}

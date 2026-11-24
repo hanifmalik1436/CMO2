@@ -36,6 +36,14 @@ public class ContentIdea extends BaseTenantEntity {
     @Column(length = 1000)
     private String quote;
 
+    /** How strong the hook is for this customer's audience, 0 to 100; null for ideas found before scoring. */
+    @Column(name = "virality_score")
+    private Integer viralityScore;
+
+    /** Why, naming the hook pattern (curiosity gap, contrarian, specific number…). */
+    @Column(name = "virality_reason", length = 300)
+    private String viralityReason;
+
     @Column(nullable = false)
     private int position;
 }

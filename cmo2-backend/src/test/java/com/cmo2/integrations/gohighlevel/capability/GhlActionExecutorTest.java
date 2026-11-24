@@ -110,6 +110,22 @@ class GhlActionExecutorTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void anApprovedTextOnlyPostSendsAnEmptyMediaArray() {
+        var post = new CreateSocialPost(List.of(ACCOUNT), "Text-only announcement", List.of(), AT, USER);
+
+        executor.execute(7L, post, Actor.HUMAN, "asset:43");
+
+        ArgumentCaptor<Object> body = ArgumentCaptor.forClass(Object.class);
+        verify(gateway).post(eq("/social-media-posting/loc1/posts"), body.capture(), eq("loc-token"), eq("loc1"));
+        Map<String, Object> sent = (Map<String, Object>) body.getValue();
+        assertThat(sent)
+                .containsEntry("summary", "Text-only announcement")
+                .containsEntry("media", List.of());
+        verify(audit).record(eq("GHL_ACTION"), eq("Company"), eq("7"), contains("approval asset:43"));
+    }
+
+    @Test
     void agentsCanNeverRunDestructiveActions() {
         signInAs("ROLE_OWNER");
 

@@ -48,6 +48,10 @@ public class Asset extends BaseTenantEntity {
     @Column(name = "idea_id")
     private Long ideaId;
 
+    /** Smart Schedule's suggested publishing time; a suggestion only, nothing is scheduled before approval. */
+    @Column(name = "suggested_publish_at")
+    private Instant suggestedPublishAt;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 24)
     private AssetStatus status = AssetStatus.PENDING_APPROVAL;

@@ -100,11 +100,9 @@ public class GhlActionExecutor {
             body.put("summary", p.summary());
             body.put("userId", p.userId());
             body.put("scheduleDate", p.scheduledAt().toString());
-            if (!p.mediaUrls().isEmpty()) {
-                body.put("media", p.mediaUrls().stream()
-                        .map(url -> Map.of("url", url, "type", mimeType(url)))
-                        .toList());
-            }
+            body.put("media", p.mediaUrls().stream()
+                    .map(url -> Map.of("url", url, "type", mimeType(url)))
+                    .toList());
             return gateway.post("/social-media-posting/" + location + "/posts", body, token, location);
         }
         if (action instanceof AddContactTags a) {

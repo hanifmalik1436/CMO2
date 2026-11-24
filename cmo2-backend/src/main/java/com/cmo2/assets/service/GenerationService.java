@@ -25,6 +25,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -77,7 +78,12 @@ public class GenerationService {
     }
 
     /** Where a Content Studio draft came from: its platform and format, batch and idea. */
-    public record StudioOrigin(String platform, String contentFormat, Long batchId, Long ideaId) {}
+    /** Where a Content Studio draft came from; {@code suggestedPublishAt} is Smart Schedule's suggestion, or null. */
+    public record StudioOrigin(String platform, String contentFormat, Long batchId, Long ideaId, Instant suggestedPublishAt) {
+        public StudioOrigin(String platform, String contentFormat, Long batchId, Long ideaId) {
+            this(platform, contentFormat, batchId, ideaId, null);
+        }
+    }
 
     /**
      * Internal (Content Studio batches run in the background with no signed-in user): writes one
@@ -102,6 +108,7 @@ public class GenerationService {
         draft.setContentFormat(origin.contentFormat());
         draft.setBatchId(origin.batchId());
         draft.setIdeaId(origin.ideaId());
+        draft.setSuggestedPublishAt(origin.suggestedPublishAt());
         draft.setTokensUsed((int) Math.min(Integer.MAX_VALUE, result.totalTokens()));
         draft.setContentJson(translator.toContentJson(draft.getTitle(), Language.EN, result.text(), result.model()));
         draft = assetRepository.save(draft);

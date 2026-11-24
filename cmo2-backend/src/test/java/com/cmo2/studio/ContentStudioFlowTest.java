@@ -87,9 +87,21 @@ class ContentStudioFlowTest {
     long source(String token, long company) throws Exception {
         String body = json.writeValueAsString(java.util.Map.of("title", "Podcast: why solar quotes stall",
                 "kind", "TRANSCRIPT", "body", TRANSCRIPT));
-        return read(mvc.perform(post("/api/companies/" + company + "/studio/sources").header("Authorization", "Bearer " + token)
+        long id = read(mvc.perform(post("/api/companies/" + company + "/studio/sources").header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated()).andReturn()).get("source").get("id").asLong();
+        settled(token, id);
+        return id;
+    }
+
+    /** Waits for the background idea search every new source gets, and returns the source with its ideas. */
+    JsonNode settled(String token, long source) {
+        JsonNode[] last = new JsonNode[1];
+        await().atMost(Duration.ofSeconds(20)).pollInterval(Duration.ofMillis(100)).untilAsserted(() -> {
+            last[0] = read(mvc.perform(get("/api/studio/sources/" + source).header("Authorization", "Bearer " + token)).andReturn());
+            assertThat(last[0].get("source").get("status").asText()).isNotIn("PENDING", "ANALYZING");
+        });
+        return last[0];
     }
 
     JsonNode analyze(String token, long source, int count) throws Exception {

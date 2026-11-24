@@ -95,6 +95,24 @@ class ProviderWireTest {
     }
 
     @Test
+    void openAiTranscribesAudioSentAsAMultipartUpload() {
+        RestClient.Builder builder = RestClient.builder().baseUrl("https://openai.test/v1");
+        MockRestServiceServer mock = MockRestServiceServer.bindTo(builder).build();
+        mock.expect(requestTo("https://openai.test/v1/audio/transcriptions"))
+                .andExpect(header("Authorization", "Bearer sk-test"))
+                .andExpect(request -> assertThat(request.getHeaders().getContentType().toString()).startsWith("multipart/form-data"))
+                .andExpect(request -> assertThat(((org.springframework.mock.http.client.MockClientHttpRequest) request).getBodyAsString())
+                        .contains("name=\"model\"").contains("whisper-1").contains("filename=\"memo.webm\""))
+                .andRespond(withSuccess("{\"text\":\"We help owners regain control.\"}", MediaType.APPLICATION_JSON));
+
+        AiResult result = new OpenAiProvider("sk-test", builder).transcribe(new byte[]{1, 2, 3}, "memo.webm", "audio/webm", "whisper-1");
+
+        assertThat(result.text()).isEqualTo("We help owners regain control.");
+        assertThat(result.model()).isEqualTo("whisper-1");
+        mock.verify();
+    }
+
+    @Test
     void openAiRefusalsAndRejectedKeysAreErrors() {
         RestClient.Builder builder = RestClient.builder().baseUrl("https://openai.test/v1");
         MockRestServiceServer mock = MockRestServiceServer.bindTo(builder).build();

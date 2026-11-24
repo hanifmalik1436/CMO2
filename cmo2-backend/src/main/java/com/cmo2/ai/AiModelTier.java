@@ -8,5 +8,6 @@ package com.cmo2.ai;
 public enum AiModelTier {
     GENERATION,   // content drafts (OpenAI gpt-5, or Claude claude-opus-5-5)
     TRANSLATION,  // bulk EN→ES translation (OpenAI gpt-5-mini, or Claude claude-haiku-5-5)
-    STRATEGY      // cycle plans and strategist sessions (Claude claude-opus-5-5)
+    STRATEGY,     // cycle plans and strategist sessions (Claude claude-opus-5-5)
+    TRANSCRIPTION // speech to text for Content Studio recordings (OpenAI only: Claude can't transcribe audio)
 }

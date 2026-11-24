@@ -1,11 +1,6 @@
 package com.cmo2.studio.service;
 
-import com.cmo2.ai.AiCallScope;
-import com.cmo2.ai.AiService;
-import com.cmo2.ai.JsonSchemas;
-import com.cmo2.ai.PromptRegistry;
 import com.cmo2.assets.domain.ContentFormat;
-import com.cmo2.customers.service.CustomerIdentityService;
 import com.cmo2.shared.audit.AuditService;
 import com.cmo2.shared.exceptions.ApiException;
 import com.cmo2.shared.security.TenantContext;
@@ -18,12 +13,14 @@ import com.cmo2.studio.dto.StudioDtos.BatchView;
 import com.cmo2.studio.dto.StudioDtos.CreateSourceRequest;
 import com.cmo2.studio.dto.StudioDtos.FormatView;
 import com.cmo2.studio.dto.StudioDtos.IdeaView;
+import com.cmo2.studio.dto.StudioDtos.LinkSourceRequest;
 import com.cmo2.studio.dto.StudioDtos.SourceDetail;
 import com.cmo2.studio.dto.StudioDtos.SourceView;
 import com.cmo2.studio.repository.ContentBatchRepository;
 import com.cmo2.studio.repository.ContentIdeaRepository;
 import com.cmo2.studio.repository.ContentSourceRepository;
 import com.cmo2.studio.service.ContentBatchRunner.Plan;
+import com.cmo2.studio.service.SourceIntake.Extracted;
 import com.cmo2.tenancy.domain.Company;
 import com.cmo2.tenancy.repository.CompanyRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -38,8 +35,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -48,38 +45,36 @@ import java.util.stream.Collectors;
 
 /**
  * The Content Studio (Strange Loop stage 1, Innovation): sources → ideas → batches of drafts for
- * chosen platforms and post types. Ideas come from the strategy model; each draft from that
- * format's agent (the generation model). Every draft lands in Approvals.
+ * chosen platforms and post types. Sources come in as pasted text, uploaded files, web links or
+ * voice recordings, and each is analysed for ideas in the background. Ideas come from the strategy
+ * model; each draft from that format's agent (the generation model). Every draft lands in Approvals.
  */
 @Service
 public class StudioService {
-
-    static final int MAX_IDEAS = 20;
-    static final List<String> IDEA_TYPES = List.of("INSIGHT", "STORY", "TIP", "CONTRARIAN", "HOW_TO", "STAT");
 
     private final ContentSourceRepository sources;
     private final ContentIdeaRepository ideas;
     private final ContentBatchRepository batches;
     private final CompanyRepository companies;
-    private final AiService ai;
-    private final PromptRegistry prompts;
-    private final CustomerIdentityService identity;
+    private final IdeaFinder finder;
+    private final SourceIntake intake;
+    private final SourceAnalysisRunner analysis;
     private final AuditService audit;
     private final ContentBatchRunner runner;
     private final ObjectMapper json;
     private final int maxPiecesPerBatch;
 
     public StudioService(ContentSourceRepository sources, ContentIdeaRepository ideas, ContentBatchRepository batches,
-                         CompanyRepository companies, AiService ai, PromptRegistry prompts,
-                         CustomerIdentityService identity, AuditService audit, ContentBatchRunner runner,
+                         CompanyRepository companies, IdeaFinder finder, SourceIntake intake,
+                         SourceAnalysisRunner analysis, AuditService audit, ContentBatchRunner runner,
                          ObjectMapper json, @Value("${cmo2.studio.max-pieces-per-batch:40}") int maxPiecesPerBatch) {
         this.sources = sources;
         this.ideas = ideas;
         this.batches = batches;
         this.companies = companies;
-        this.ai = ai;
-        this.prompts = prompts;
-        this.identity = identity;
+        this.finder = finder;
+        this.intake = intake;
+        this.analysis = analysis;
         this.audit = audit;
         this.runner = runner;
         this.json = json;
@@ -100,29 +95,56 @@ public class StudioService {
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','STRATEGIST','ANALYST','VIEWER')")
     public List<SourceView> listSources(Long companyId) {
         Company company = owned(companyId);
+        Map<Long, Long> ideaCounts = byId(ideas.countsBySource(company.getTenantId(), companyId));
+        Map<Long, Long> generated = byId(batches.generatedBySource(company.getTenantId(), companyId));
         return sources.findByTenantIdAndCompanyIdOrderByCreatedAtDesc(company.getTenantId(), companyId).stream()
-                .map(this::view).toList();
+                .map(s -> view(s, ideaCounts.getOrDefault(s.getId(), 0L), generated.getOrDefault(s.getId(), 0L)))
+                .toList();
     }
 
     @Transactional(readOnly = true)
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','STRATEGIST','ANALYST','VIEWER')")
     public SourceDetail getSource(Long sourceId) {
-        ContentSource s = ownedSource(sourceId);
-        return new SourceDetail(view(s), s.getBody(), ideaViews(s));
+        return detail(ownedSource(sourceId));
     }
 
+    /** Pasted text or a blank canvas; its ideas are found in the background. */
     @Transactional
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','STRATEGIST')")
     public SourceDetail createSource(Long companyId, CreateSourceRequest req) {
         owned(companyId);
-        ContentSource s = new ContentSource();
-        s.setCompanyId(companyId);
-        s.setTitle(req.title().strip());
-        s.setKind(req.kind());
-        s.setBody(req.body().strip());
+        return save(companyId, new Extracted(req.title().strip(), req.kind(), req.body().strip(), null, null, null));
+    }
+
+    /** A .txt, .md, .pdf or .docx file, or an audio file (transcribed; the audio isn't kept). */
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','STRATEGIST')")
+    public SourceDetail uploadSource(Long companyId, String filename, String mimeType, byte[] bytes, String title) {
+        owned(companyId);
+        return save(companyId, intake.fromFile(companyId, filename, mimeType, bytes, title));
+    }
+
+    /** A voice recording made in the studio: transcribed, then the audio is dropped. */
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','STRATEGIST')")
+    public SourceDetail recordSource(Long companyId, String filename, String mimeType, byte[] bytes, String title) {
+        owned(companyId);
+        return save(companyId, intake.fromRecording(companyId, filename, mimeType, bytes, title));
+    }
+
+    /** The readable text of a web page. */
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','STRATEGIST')")
+    public SourceDetail linkSource(Long companyId, LinkSourceRequest req) {
+        owned(companyId);
+        return save(companyId, intake.fromLink(req.url(), req.title()));
+    }
+
+    @Transactional
+    @PreAuthorize("hasAnyRole('OWNER','ADMIN','STRATEGIST')")
+    public SourceView star(Long sourceId, boolean starred) {
+        ContentSource s = ownedSource(sourceId);
+        s.setStarred(starred);
         s = sources.save(s);
-        audit.record("CONTENT_SOURCE_ADDED", "ContentSource", String.valueOf(s.getId()), s.getTitle());
-        return new SourceDetail(view(s), s.getBody(), List.of());
+        return view(s, ideas.countByTenantIdAndSourceId(s.getTenantId(), sourceId),
+                batches.generatedForSource(s.getTenantId(), sourceId));
     }
 
     @Transactional
@@ -134,50 +156,38 @@ public class StudioService {
         audit.record("CONTENT_SOURCE_DELETED", "ContentSource", String.valueOf(sourceId), s.getTitle());
     }
 
+    private SourceDetail save(Long companyId, Extracted in) {
+        ContentSource s = new ContentSource();
+        s.setCompanyId(companyId);
+        s.setTitle(in.title());
+        s.setKind(in.kind());
+        s.setBody(in.text());
+        s.setOriginUrl(in.originUrl());
+        s.setOriginFile(in.originFile());
+        s.setStatus(ContentSource.PENDING);
+        s.setStatusNote(in.note());
+        s = sources.save(s);
+        audit.record("CONTENT_SOURCE_ADDED", "ContentSource", String.valueOf(s.getId()),
+                in.kind() + ": " + s.getTitle());
+        Long tenantId = s.getTenantId();
+        Long sourceId = s.getId();
+        afterCommit(() -> analysis.submit(tenantId, sourceId));
+        return new SourceDetail(view(s, 0, 0), s.getBody(), List.of());
+    }
+
     // ---- ideas ---------------------------------------------------------------------------
 
-    /** Asks the strategy model for the {@code count} strongest ideas; replaces the source's earlier ideas. */
+    /** Re-analyze: asks the strategy model for the {@code count} strongest ideas now and replaces the earlier ones. */
     @Transactional
     @PreAuthorize("hasAnyRole('OWNER','ADMIN','STRATEGIST')")
     public SourceDetail analyze(Long sourceId, int count) {
         ContentSource s = ownedSource(sourceId);
-        int n = Math.min(Math.max(count, 1), MAX_IDEAS);
-        JsonNode answer;
-        try (AiCallScope scope = AiCallScope.forCompany(s.getCompanyId())) {
-            answer = ai.generateJson(prompts.forContentIdeas(identity.identityBlock(s.getTenantId(), s.getCompanyId()),
-                    s.getTitle(), s.getBody(), n), ideasSchema(n));
+        if (ContentSource.PENDING.equals(s.getStatus()) || ContentSource.ANALYZING.equals(s.getStatus())) {
+            throw ApiException.conflict("Still finding ideas in this source; try again when it's done");
         }
-        ideas.deleteByTenantIdAndSourceId(s.getTenantId(), sourceId);
-        int position = 0;
-        for (JsonNode i : answer.path("ideas")) {
-            ContentIdea idea = new ContentIdea();
-            idea.setTenantId(s.getTenantId());
-            idea.setCompanyId(s.getCompanyId());
-            idea.setSourceId(sourceId);
-            idea.setIdeaType(i.path("type").asText("INSIGHT"));
-            idea.setTitle(i.path("title").asText());
-            idea.setSummary(i.path("summary").asText(null));
-            List<String> hooks = new ArrayList<>();
-            i.path("hooks").forEach(h -> hooks.add(h.asText()));
-            idea.setHooksJson(write(hooks));
-            idea.setQuote(i.path("quote").asText(null));
-            idea.setPosition(position++);
-            ideas.save(idea);
-        }
-        s.setAnalyzedAt(Instant.now());
-        sources.save(s);
-        audit.record("CONTENT_IDEAS_EXTRACTED", "ContentSource", String.valueOf(sourceId), position + " ideas");
-        return new SourceDetail(view(s), s.getBody(), ideaViews(s));
-    }
-
-    static Map<String, Object> ideasSchema(int count) {
-        return JsonSchemas.object(Map.of("ideas", JsonSchemas.array(JsonSchemas.object(Map.of(
-                "type", JsonSchemas.enumOf(IDEA_TYPES, "What kind of idea it is"),
-                "title", JsonSchemas.string(200, "A headline-style title"),
-                "summary", JsonSchemas.string(400, "One sentence on what it says"),
-                "hooks", JsonSchemas.array(JsonSchemas.string(160, null), 3, "Short opening lines a post could use"),
-                "quote", JsonSchemas.string(400, "The sentence from the material that supports it, quoted exactly"))),
-                count, null)));
+        JsonNode answer = finder.ask(s, count);
+        finder.save(s.getTenantId(), sourceId, answer);
+        return detail(ownedSource(sourceId));
     }
 
     // ---- batches -------------------------------------------------------------------------
@@ -215,23 +225,17 @@ public class StudioService {
         batch.setCompanyId(companyId);
         batch.setSourceId(source.getId());
         batch.setTotalPieces(pieces);
-        batch.setRequestJson(write(new Plan(ideaIds, req.includeFullSource(), formats, req.draftsPerFormat(), req.translate())));
+        batch.setRequestJson(write(new Plan(ideaIds, req.includeFullSource(), formats, req.draftsPerFormat(),
+                req.translate(), req.smartSchedule())));
         batch = batches.save(batch);
+        source.setLastUsedAt(Instant.now());
+        sources.save(source);
         audit.record("CONTENT_BATCH_STARTED", "ContentBatch", String.valueOf(batch.getId()),
                 pieces + " pieces for company " + companyId);
 
         Long tenantId = TenantContext.requireTenantId();
         Long batchId = batch.getId();
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    runner.submit(tenantId, batchId);
-                }
-            });
-        } else {
-            runner.submit(tenantId, batchId);
-        }
+        afterCommit(() -> runner.submit(tenantId, batchId));
         return view(batch);
     }
 
@@ -252,9 +256,30 @@ public class StudioService {
 
     // ---- helpers -------------------------------------------------------------------------
 
+    /** Runs {@code task} once the current transaction commits (or now, outside one). */
+    private static void afterCommit(Runnable task) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    task.run();
+                }
+            });
+        } else {
+            task.run();
+        }
+    }
+
+    private SourceDetail detail(ContentSource s) {
+        List<IdeaView> list = ideaViews(s);
+        return new SourceDetail(view(s, list.size(), batches.generatedForSource(s.getTenantId(), s.getId())),
+                s.getBody(), list);
+    }
+
     private List<IdeaView> ideaViews(ContentSource s) {
         return ideas.findByTenantIdAndSourceIdOrderByPositionAsc(s.getTenantId(), s.getId()).stream()
-                .map(i -> new IdeaView(i.getId(), i.getIdeaType(), i.getTitle(), i.getSummary(), hooks(i), i.getQuote()))
+                .map(i -> new IdeaView(i.getId(), i.getIdeaType(), i.getTitle(), i.getSummary(), hooks(i), i.getQuote(),
+                        i.getViralityScore(), i.getViralityReason()))
                 .toList();
     }
 
@@ -267,13 +292,19 @@ public class StudioService {
         return List.of();
     }
 
-    private SourceView view(ContentSource s) {
+    private static SourceView view(ContentSource s, long ideaCount, long generated) {
         String body = s.getBody() == null ? "" : s.getBody();
         String preview = body.replaceAll("\\s+", " ").strip();
-        int ideaCount = ideas.findByTenantIdAndSourceIdOrderByPositionAsc(s.getTenantId(), s.getId()).size();
         return new SourceView(s.getId(), s.getCompanyId(), s.getTitle(), s.getKind(), body.length(),
-                preview.length() <= 240 ? preview : preview.substring(0, 240) + "…", s.getAnalyzedAt(), ideaCount,
-                s.getCreatedAt());
+                preview.length() <= 240 ? preview : preview.substring(0, 240) + "…", s.getAnalyzedAt(), (int) ideaCount,
+                s.getCreatedAt(), s.getStatus(), s.getStatusNote(), s.isStarred(), s.getLastUsedAt(), generated,
+                s.getOriginUrl(), s.getOriginFile());
+    }
+
+    private static Map<Long, Long> byId(List<Object[]> rows) {
+        Map<Long, Long> out = new HashMap<>();
+        for (Object[] r : rows) out.put(((Number) r[0]).longValue(), ((Number) r[1]).longValue());
+        return out;
     }
 
     static BatchView view(ContentBatch b) {

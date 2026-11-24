@@ -147,6 +147,23 @@
             <version>1.3.43</version>
         </dependency>
 
+        <!-- Content Studio: read uploaded PDF and Word files, and the text of web pages. -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.3.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jsoup</groupId>
+            <artifactId>jsoup</artifactId>
+            <version>1.18.1</version>
+        </dependency>
+
         <!-- Stripe billing (Phase 7) — hosted Checkout/Portal + webhooks. The platform
              defaults to a stub gateway so the full signup→pay→use flow runs with no Stripe key. -->
         <dependency>
